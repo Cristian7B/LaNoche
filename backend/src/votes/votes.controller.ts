@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Param, Put, Req, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import type { AuthRequest } from '../auth/auth.types.js';
-import { HumanVerifiedGuard } from '../auth/verification.guard.js';
 import { RankingService } from './ranking.service.js';
 import { VotesService } from './votes.service.js';
 import { VoteAttemptGuard } from './vote-attempt.guard.js';
@@ -27,7 +26,7 @@ export class VotesController {
 
   @Put(':category')
   @SkipThrottle()
-  @UseGuards(VoteAttemptGuard, HumanVerifiedGuard)
+  @UseGuards(VoteAttemptGuard)
   replace(
     @Param('category', { schema: categorySchema }) category: 'photo' | 'sticker',
     @Body({ schema: ballotSchema }) body: z.infer<typeof ballotSchema>,

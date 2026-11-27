@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Ranking · La noche de PS">
+	<main class="ranking"><header><a href="/app">← Tu gala</a><span>EL RANKING</span></header><section><p class="eyebrow">LA HISTORIA SE DECIDE ENTRE TODOS</p><h1>El ranking<br /><em>se revela al final.</em></h1><p id="message">Consultando el estado de la gala…</p><a href="/results">Ver resultados publicados →</a></section></main>
+</Layout>
+<script>
+	import{getEvent}from'../../lib/api';
+	const message=document.querySelector<HTMLElement>('#message')!;try{const event=await getEvent();message.textContent=event.effective_status==='open'?'El ranking permanece reservado durante la votación.':event.effective_status==='closed'?'La gala terminó. Los resultados aparecerán aquí cuando se publiquen.':'Los resultados oficiales ya están disponibles.';if(event.effective_status==='results_published')window.location.replace('/results');}catch(e){message.textContent=e instanceof Error?e.message:'No pudimos consultar el estado. Vuelve a intentarlo.';}
+</script>
+<style>
+	.ranking{min-height:100vh;padding:max(24px,env(safe-area-inset-top)) 20px;background:radial-gradient(ellipse at 76% 8%,#28163c,#100b1d 65%)}header{display:flex;justify-content:space-between;max-width:850px;margin:auto;color:#aa9bb9;font-size:10px;letter-spacing:.16em}header a{color:#e4d6f4;text-decoration:none}section{width:min(850px,100%);margin:14vh auto}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.18em}h1{font:400 clamp(54px,10vw,85px)/.85 'Instrument Serif',Georgia,serif}h1 em{color:#c39dff}section p:not(.eyebrow){color:#b7abc7;font-size:13px}section a{display:inline-block;margin-top:20px;color:var(--lime);font-size:12px;text-decoration:none}
+</style>

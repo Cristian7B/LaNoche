@@ -1,0 +1,12 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="Ajustes · La noche de PS">
+	<main class="redirect-page"><p class="eyebrow">CAMBIOS DE CONFIGURACIÓN</p><h1>Ajustes de la <em>gala.</em></h1><p id="message">Abriendo el panel de administración…</p><a href="/admin#settings">Ir a ajustes →</a></main>
+</Layout>
+<script>
+	window.location.replace('/admin#settings');
+</script>
+<style>
+	.redirect-page{min-height:100vh;display:grid;align-content:center;justify-items:center;padding:24px;text-align:center;background:radial-gradient(ellipse at 50% 30%,#28163c,#100b1d 70%)}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.2em}h1{font:400 clamp(44px,10vw,70px)/.9 'Instrument Serif',Georgia,serif}h1 em{color:#c39dff}p:not(.eyebrow){color:#b7abc7;font-size:12px}a{color:var(--lime);font-size:12px}
+</style>

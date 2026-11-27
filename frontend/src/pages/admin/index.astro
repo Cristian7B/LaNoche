@@ -1,0 +1,45 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Administrar · La noche de PS">
+	<main class="admin">
+		<header><a href="/app">← Tu gala</a><span>ADMINISTRACIÓN</span></header>
+		<section class="content"><p class="eyebrow">CONTROL DE LA GALA</p><h1>La noche<br /><em>desde dentro.</em></h1><p id="message" class="message">Verificando permisos…</p>
+			<section id="dashboard" hidden><div class="event-row"><span id="status"></span><div id="event-actions"></div></div><div id="metrics" class="metrics"></div>
+			<nav class="admin-nav"><a href="/admin/moderation">Moderación →</a><a href="/admin/ranking">Ranking →</a><a href="/admin/users">Personas y auditoría →</a><a href="/admin/onsite">Proyección onsite →</a></nav>
+			<section class="settings" id="settings"><p class="eyebrow">CAMBIOS DE CONFIGURACIÓN</p><p>Los valores actuales de estos ajustes vienen de /event. Para banderas privadas, solo se enviará el campo que decidas cambiar.</p><p id="known-settings" class="known"></p><form>
+				<label>Fecha de cierre<input name="closes_at" type="datetime-local" /></label>
+				<label class="clear-date"><input name="clear_closes_at" type="checkbox" />Quitar fecha de cierre</label>
+				<label>Votos máximos por categoría<input name="max_votes_per_category" type="number" min="1" max="10" placeholder="Sin cambio" /></label>
+				<label>Cupo de fotos<input name="max_photo_submissions" type="number" min="0" max="20" placeholder="Sin cambio" /></label>
+				<label>Cupo de stickers<input name="max_sticker_submissions" type="number" min="0" max="20" placeholder="Sin cambio" /></label>
+				<label>Permitir autovoto<select name="allow_self_vote"><option value="">Sin cambio</option><option value="true">Sí</option><option value="false">No</option></select></label>
+				<label>Mostrar autor en resultados públicos<select name="show_author_in_public_results"><option value="">Sin cambio</option><option value="true">Sí</option><option value="false">No</option></select></label>
+				<button type="submit">Aplicar cambios ↗</button>
+			</form></section></section>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	import { apiRequest, getMe } from '../../lib/api';import { getValidSession } from '../../lib/auth';
+	type Dashboard={event:{status:string;effective_status:string;closes_at:string|null;limits:{max_votes_per_category:number;max_photo_submissions:number;max_sticker_submissions:number;max_images_per_photo:number}};users:number;submissions:{photo:number;sticker:number;deleted:number};voters:{photo:number;sticker:number};votes_total:number;intakes:{ready:number;claimed:number;failed:number}};
+	const message=document.querySelector<HTMLElement>('#message')!;const section=document.querySelector<HTMLElement>('#dashboard')!;const metrics=document.querySelector<HTMLElement>('#metrics')!;
+	const session=await getValidSession();if(!session){message.textContent='Inicia sesión con una cuenta administradora.';}else try{
+		const me=await getMe(session.access_token);if(me.role!=='admin'){message.textContent='Esta cuenta no tiene acceso de administración.';}else{
+			const data=await apiRequest<Dashboard>('/admin/dashboard',{accessToken:session.access_token});section.hidden=false;message.textContent='Las métricas reflejan los datos actuales del servidor.';
+			(document.querySelector('#status') as HTMLElement).textContent=`Estado guardado: ${data.event.status} · efectivo: ${data.event.effective_status}`;
+			(document.querySelector('#known-settings') as HTMLElement).textContent=`Cierre programado: ${data.event.closes_at?new Date(data.event.closes_at).toLocaleString():'sin fecha'} · Máx. papeleta ${data.event.limits.max_votes_per_category} · cupos foto/sticker ${data.event.limits.max_photo_submissions}/${data.event.limits.max_sticker_submissions}`;
+			for(const [label,value] of [['Participantes',data.users],['Fotos',data.submissions.photo],['Stickers',data.submissions.sticker],['Postulaciones eliminadas',data.submissions.deleted],['Votantes · fotos',data.voters.photo],['Votantes · stickers',data.voters.sticker],['Votos emitidos',data.votes_total],['Intakes listos',data.intakes.ready],['Intakes reclamados',data.intakes.claimed],['Intakes fallidos',data.intakes.failed]] as [string,number][]){const card=document.createElement('article');const strong=document.createElement('strong');strong.textContent=String(value);const span=document.createElement('span');span.textContent=label;card.append(strong,span);metrics.append(card);}
+			const actions=document.querySelector<HTMLElement>('#event-actions')!;
+			const choices=data.event.status==='open'?[['Cerrar gala','close']]:data.event.status==='closed'?[['Reabrir gala','reopen'],['Publicar resultados','publish-results']]:[['Retirar resultados','unpublish-results']];
+			for(const [label,action] of choices){const button=document.createElement('button');button.textContent=label;button.onclick=async()=>{if(!window.confirm(`¿${label} ahora?`))return;button.disabled=true;try{await apiRequest(`/admin/event/${action}`,{method:'POST',accessToken:session.access_token});window.location.reload();}catch(error){message.textContent=error instanceof Error?error.message:'No se pudo completar la acción.';button.disabled=false;}};actions.append(button);}
+			section.querySelector<HTMLFormElement>('#settings form')!.addEventListener('submit',async(event)=>{event.preventDefault();const form=event.currentTarget as HTMLFormElement;const formData=new FormData(form);const changes:Record<string,unknown>={};for(const key of ['max_votes_per_category','max_photo_submissions','max_sticker_submissions']){const value=formData.get(key);if(value)changes[key]=Number(value);}for(const key of ['allow_self_vote','show_author_in_public_results']){const value=formData.get(key);if(value==='true'||value==='false')changes[key]=value==='true';}const closeValue=String(formData.get('closes_at')??'');if(formData.get('clear_closes_at')==='on')changes.closes_at=null;else if(closeValue)changes.closes_at=new Date(closeValue).toISOString();if(!Object.keys(changes).length){message.textContent='Elige al menos un cambio.';return;}const button=form.querySelector<HTMLButtonElement>('button[type="submit"]')!;button.disabled=true;try{await apiRequest('/admin/settings',{method:'PATCH',accessToken:session.access_token,body:JSON.stringify(changes)});message.textContent='Los cambios se aplicaron.';form.reset();}catch(error){message.textContent=error instanceof Error?error.message:'No se pudieron aplicar los cambios.';}finally{button.disabled=false;}});
+		}
+	}catch(error){message.textContent=error instanceof Error?error.message:'No pudimos cargar el panel.';}
+</script>
+
+<style>
+	.admin{min-height:100vh;padding:max(22px,env(safe-area-inset-top)) 20px 60px;background:radial-gradient(ellipse at 80% 0%,#28163c,#100b1d 60%)}header{display:flex;justify-content:space-between;max-width:1000px;margin:0 auto 54px;color:#9f91b0;font-size:10px;letter-spacing:.14em}header a{color:#e4d6f4;text-decoration:none}.content{width:min(1000px,100%);margin:0 auto}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.18em}h1{margin:10px 0 16px;font:400 clamp(54px,10vw,82px)/.85 'Instrument Serif',Georgia,serif}h1 em{color:#c39dff}.message{color:#b7abc7;font-size:12px}.event-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #ffffff20;color:#dfd4e9;font-size:12px}.event-row button{margin-left:8px;padding:9px 12px;border:1px solid #c1ff7266;color:var(--lime);background:#c1ff7210;font-size:10px;cursor:pointer}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}.metrics article{display:grid;gap:7px;padding:12px;border:1px solid #ffffff1c;background:#ffffff06}.metrics strong{color:#f7efff;font:25px 'Instrument Serif',Georgia,serif}.metrics span{color:#a99bb8;font-size:9px}.admin-nav{display:flex;flex-wrap:wrap;gap:16px;margin:26px 0;padding:16px 0;border-block:1px solid #ffffff20}.admin-nav a{color:#d8cde5;font-size:11px;text-decoration:none}.settings{padding:22px;border:1px solid #ffffff20;background:#ffffff06}.settings>p:nth-child(2){color:#aa9bb9;font-size:11px;line-height:1.5}.settings form{display:grid;grid-template-columns:1fr 1fr;gap:14px}.settings label{display:grid;gap:7px;color:#d4c6e1;font-size:10px}.settings input,.settings select{width:100%;padding:10px;border:1px solid #ffffff2a;color:#f6efff;background:#191127}.settings button{justify-self:start;padding:11px 14px;border:0;color:#17101f;background:var(--lime);font-size:11px;font-weight:600;cursor:pointer}@media(max-width:760px){.metrics{grid-template-columns:repeat(2,1fr)}.settings form{grid-template-columns:1fr}.event-row{align-items:flex-start;flex-direction:column;gap:12px}.admin-nav{gap:12px}}
+</style>

@@ -1,0 +1,134 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Nueva postulación · La noche de PS">
+	<main class="screen">
+		<header><a href="/app">← Tu gala</a><span>01 / POSTULAR</span></header>
+		<section class="content">
+			<p class="eyebrow">TU HISTORIA EN LA GALA</p><h1 id="heading">Nueva<br /><em>postulación.</em></h1>
+			<p id="closed" class="notice" hidden>Las postulaciones están cerradas. Puedes revisar tus postulaciones desde <a href="/app/me/submissions">tu perfil</a>.</p>
+			<form id="submission-form" hidden>
+				<button id="login-button" class="login-button" type="button" hidden>Continuar con Google ↗</button>
+				<label class="field">Categoría
+					<select id="category" name="category"><option value="photo">Mejor foto</option><option value="sticker">Mejor sticker</option></select>
+				</label>
+				<section id="sticker-instructions" class="sticker-instructions" hidden>
+					<h2>Comparte tu sticker por WhatsApp</h2>
+					<p>Abre el chat del bot y reenvíale tu sticker. Recibirás un enlace para agregar el título y la descripción de tu postulación.</p>
+					<a href="https://wa.me/573124274757" target="_blank" rel="noopener noreferrer">Abrir el bot de WhatsApp ↗</a>
+				</section>
+				<fieldset id="photo-fields" class="photo-fields">
+				<label class="dropzone" for="files"><span class="plus">＋</span><span id="file-prompt">Selecciona tus imágenes</span><small id="file-hint">JPG, PNG o WebP · Hasta — imágenes · 10 MiB por archivo como guía</small></label>
+				<input id="files" name="files" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+				<div id="file-list" class="file-list" aria-live="polite"></div>
+				<label class="field">Título <input name="title" required minlength="3" maxlength="120" placeholder="Dale un nombre a este recuerdo" /></label>
+				<label class="field">Descripción <textarea name="description" required minlength="10" maxlength="1000" rows="3" placeholder="Cuéntanos por qué debería estar en la historia…"></textarea></label>
+				</fieldset>
+				<p id="form-message" class="form-message" aria-live="polite"></p>
+				<button id="photo-submit" class="submit" type="submit"><span>Enviar postulación</span><span aria-hidden="true">↗</span></button>
+			</form>
+			<section id="success" class="success" hidden><span>✳</span><h2>Ya es parte<br />de la historia.</h2><p>Tu postulación quedó guardada.</p><a href="/app/me/submissions">Ver mis postulaciones →</a></section>
+		</section>
+	</main>
+</Layout>
+
+<script>
+	import { apiRequest, getEvent, getMe } from '../../../lib/api';
+	import { getValidSession, startGoogleSignIn } from '../../../lib/auth';
+	const params = new URLSearchParams(window.location.search);
+	const category = document.querySelector<HTMLSelectElement>('#category')!;
+	const form = document.querySelector<HTMLFormElement>('#submission-form')!;
+	const input = document.querySelector<HTMLInputElement>('#files')!;
+	const list = document.querySelector<HTMLElement>('#file-list')!;
+	const message = document.querySelector<HTMLElement>('#form-message')!;
+	const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+	const selected: File[] = [];
+	const previewUrls: string[] = [];
+	let accessToken = '';
+	let eventStatus = 'unknown';
+	let maxImages = 10;
+	let verified = false;
+	let turnstileToken = '';
+	let widgetId: string | undefined;
+
+	const session = await getValidSession();
+	if (!session) { message.textContent = 'Inicia sesión para postular.'; form.hidden = false; form.querySelectorAll('input,select,textarea,button').forEach((el) => (el as HTMLInputElement).disabled = true); const login=document.querySelector<HTMLButtonElement>('#login-button')!; login.hidden=false; login.disabled=false; login.onclick=async()=>{try{await startGoogleSignIn(`/app/submissions/new?category=${params.get('category') === 'sticker' ? 'sticker' : 'photo'}`);}catch(e){message.textContent=e instanceof Error?e.message:'No se pudo iniciar sesión.';}}; }
+	else {
+		accessToken = session.access_token;
+		try {
+			const [user,event] = await Promise.all([getMe(accessToken), getEvent()]);
+			eventStatus = event.effective_status;
+			maxImages = event.limits.max_images_per_photo;
+			if (eventStatus !== 'open') document.querySelector<HTMLElement>('#closed')!.hidden = false;
+			else { form.hidden = false; category.value = params.get('category') === 'sticker' ? 'sticker' : 'photo'; updateCategory(); }
+			verified = user.human_verified;
+		} catch (error) { form.hidden=false;message.textContent = error instanceof Error ? error.message : 'No pudimos cargar tu perfil.';const retry=document.createElement('button');retry.type='button';retry.textContent='Volver a intentar';retry.className='retry';retry.onclick=()=>window.location.reload();form.prepend(retry); }
+	}
+
+	function updateCategory() {
+		const sticker = category.value === 'sticker';
+		const photoFields = document.querySelector<HTMLFieldSetElement>('#photo-fields')!;
+		const instructions = document.querySelector<HTMLElement>('#sticker-instructions')!;
+		photoFields.hidden = sticker;
+		photoFields.disabled = sticker;
+		instructions.hidden = !sticker;
+		submit.hidden = sticker;
+		submit.disabled = sticker;
+		input.value = '';
+		(document.querySelector('#file-hint') as HTMLElement).textContent = `JPG, PNG o WebP · Hasta ${maxImages} imágenes · 10 MiB por archivo como guía`;
+		selected.splice(0); renderFiles();
+	}
+
+	function renderFiles() {
+		for (const url of previewUrls.splice(0)) URL.revokeObjectURL(url);
+		list.replaceChildren();
+		selected.forEach((file,index) => {
+			const row = document.createElement('div'); row.className='file-row';
+			if (file.type.startsWith('image/')) { const img=document.createElement('img'); const url=URL.createObjectURL(file); previewUrls.push(url); img.src=url; img.alt='Vista previa del archivo'; row.append(img); }
+			const name=document.createElement('span'); name.textContent=file.name;
+			const reorder=document.createElement('div'); reorder.className='reorder';
+			for (const [label,delta] of [['Subir',-1],['Bajar',1]] as const) { const button=document.createElement('button'); button.type='button'; button.textContent=label; button.setAttribute('aria-label',`${label} ${file.name}`); button.disabled=index+delta<0||index+delta>=selected.length; button.onclick=()=>{const [item]=selected.splice(index,1);selected.splice(index+delta,0,item);renderFiles();}; reorder.append(button); }
+			const remove=document.createElement('button'); remove.type='button'; remove.className='remove'; remove.textContent='Quitar'; remove.setAttribute('aria-label',`Quitar ${file.name}`); remove.onclick=()=>{selected.splice(index,1);renderFiles();};
+			row.append(name,reorder,remove); list.append(row);
+		});
+	}
+
+	category.addEventListener('change',updateCategory);
+	input.addEventListener('change',()=>{
+		const files=Array.from(input.files ?? []);
+		if (category.value==='sticker' && files.length>1) { message.textContent='Para sticker selecciona un solo archivo.'; return; }
+		if (selected.length+files.length>maxImages && category.value==='photo') { message.textContent=`Puedes elegir hasta ${maxImages} imágenes.`; return; }
+		const compatible=files.every((file)=>category.value==='photo'?['image/jpeg','image/png','image/webp'].includes(file.type):['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm'].includes(file.type));
+		if(!compatible){message.textContent=category.value==='photo'?'La foto debe ser JPEG, PNG o WebP.':'El sticker debe ser JPEG, PNG, WebP, GIF, MP4 o WebM.';return;}
+		if(category.value==='sticker')selected.splice(0);
+		selected.push(...files); input.value=''; message.textContent=''; renderFiles();
+	});
+
+	form.addEventListener('submit',async(event)=>{
+		event.preventDefault(); message.textContent='';
+		if (category.value !== 'photo') { message.textContent='Envía tu sticker al bot de WhatsApp.'; return; }
+		if (eventStatus!=='open') { message.textContent='Las postulaciones están cerradas.'; return; }
+		if (!selected.length) { message.textContent='Agrega al menos un archivo.'; return; }
+		submit.disabled=true;
+		try {
+			const data=new FormData(); data.set('category',category.value); data.set('title',String(new FormData(form).get('title')??'')); data.set('description',String(new FormData(form).get('description')??''));
+			selected.forEach((file)=>data.append('files',file,file.name));
+			await apiRequest('/submissions',{method:'POST',accessToken,body:data});
+			form.hidden=true; document.querySelector<HTMLElement>('#success')!.hidden=false;
+		} catch(e) { message.textContent=e instanceof Error?e.message:'No se pudo enviar. Revisa los datos e inténtalo otra vez.'; }
+		finally { submit.disabled=false; }
+	});
+</script>
+
+<style is:global>
+	.screen{min-height:100vh;padding:max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 48px max(20px,env(safe-area-inset-left));background:radial-gradient(ellipse at 84% 0%,#28163c,#100b1d 58%)}
+	header{display:flex;justify-content:space-between;max-width:800px;margin:0 auto 44px;color:#a89ab8;font-size:10px;letter-spacing:.14em}header a{color:#e4d6f4;text-decoration:none}
+	.content{width:min(640px,100%);margin:0 auto}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.2em}
+	h1{margin:12px 0 28px;font:400 clamp(52px,12vw,76px)/.86 'Instrument Serif',Georgia,serif}h1 em{color:#c39dff}
+	form{display:grid;gap:16px}.field{display:grid;gap:7px;color:#cdbfda;font-size:11px}.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #ffffff2b;border-radius:3px;color:#f6efff;background:#191127;font:13px 'DM Sans',sans-serif}.field textarea{resize:vertical}.field input::placeholder,.field textarea::placeholder{color:#7e718d}
+	.dropzone{display:grid;justify-items:center;gap:7px;padding:20px;border:1px dashed #a77bff78;color:#eee4f8;text-align:center;cursor:pointer}.dropzone .plus{color:var(--lime);font-size:22px}.dropzone small{color:#9586a5;font-size:9px}#files{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}#files:focus-visible+.file-list{outline:2px solid var(--lime)}
+	.file-list{display:grid;gap:6px}.file-row{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid #ffffff1a;color:#cdbfda;font-size:10px}.file-row img{width:38px;height:38px;object-fit:cover}.file-row>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reorder{display:flex;gap:4px}.reorder button,.remove{border:0;color:#cbbbe0;background:none;font-size:9px;cursor:pointer}.reorder button:disabled{opacity:.35}.remove{color:#f7969c}.turnstile{min-height:0}.form-message,.notice{color:#f0c7a3;font-size:11px;line-height:1.5}.notice a,.success a{color:var(--lime)}.submit{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;padding:0 15px;border:0;border-radius:3px;color:#17101f;background:#c1ff72;font-size:12px;font-weight:600;cursor:pointer}.submit:disabled{opacity:.55;cursor:wait}.success{padding:24px;border:1px solid #ffffff24;background:#ffffff08}.success>span{color:var(--lime);font-size:24px}.success h2{font:400 40px/.9 'Instrument Serif',Georgia,serif}.success p{color:#b7abc7;font-size:12px}.success a{font-size:12px;text-decoration:none}
+	.photo-fields{display:grid;gap:16px;min-width:0;margin:0;padding:0;border:0}.photo-fields[hidden],.sticker-instructions[hidden],.submit[hidden]{display:none}.sticker-instructions{padding:24px;border:1px solid #c1ff7240;background:#ffffff08}.sticker-instructions h2{margin:0 0 12px;font:28px Instrument Serif,Georgia,serif}.sticker-instructions p{color:#c3b6d0;font-size:13px;line-height:1.6}.sticker-instructions a{display:inline-block;margin-top:8px;padding:13px 16px;background:var(--lime);color:#17101f;text-decoration:none;font-size:12px;font-weight:600}
+	@media(min-width:700px){.screen{padding-top:32px}.content{padding-bottom:40px}}
+</style>

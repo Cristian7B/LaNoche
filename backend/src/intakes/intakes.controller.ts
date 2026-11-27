@@ -2,7 +2,6 @@ import { Body, ConflictException, Controller, Get, Param, Post, Req, Res, UseGua
 import { z } from 'zod';
 import type { Response } from 'express';
 import type { AuthRequest } from '../auth/auth.types.js';
-import { HumanVerifiedGuard } from '../auth/verification.guard.js';
 import { IntakesService } from './intakes.service.js';
 import { Throttle } from '@nestjs/throttler';
 
@@ -28,7 +27,6 @@ export class IntakesController {
 
   @Post(':token/claim')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(HumanVerifiedGuard)
   claim(
     @Param('token', { schema: tokenSchema }) token: string,
     @Body({ schema: claimSchema }) body: z.infer<typeof claimSchema>,

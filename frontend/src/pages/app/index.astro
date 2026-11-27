@@ -1,0 +1,98 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Tu gala · La noche de PS">
+	<main class="app-page">
+		<header><a href="/" class="wordmark">✳ LA NOCHE DE PS</a><button id="sign-out" class="quiet" type="button" hidden>Salir</button></header>
+		<section id="loading" class="center"><span class="spinner"></span><p>Abriendo tu gala…</p></section>
+		<section id="signin" class="center" hidden>
+			<p class="eyebrow">TU LUGAR EN LA GALA</p><h1>Una noche<br /><em>para recordar.</em></h1>
+			<p class="muted">Inicia sesión con Google para postular y votar.</p>
+			<button id="google" class="primary" type="button">Continuar con Google <span>↗</span></button>
+		</section>
+		<section id="hub" hidden>
+			<p class="eyebrow">TU GALA</p><h1>Hola, <em id="name">amiga</em></h1>
+			<div class="event-state"><span class="dot"></span><span id="event-status">Consultando estado…</span></div>
+			<div class="quota-grid">
+				<article><span class="number">01</span><h2>Mejor foto<br />de la historia</h2><p id="photo-quota">Tus postulaciones · —</p><a id="photo-action" href="/app/submissions/new?category=photo">Postular una foto <span>→</span></a></article>
+				<article><span class="number">02</span><h2>Mejor sticker<br />de la historia</h2><p id="sticker-quota">Tus postulaciones · —</p><a id="sticker-action" href="/app/submissions/new?category=sticker">Postular un sticker <span>→</span></a></article>
+			</div>
+			<nav class="hub-nav" aria-label="Navegación de la gala">
+			<a href="/app/me/submissions">Mis postulaciones</a><a id="vote-action" href="/app/vote/photo">Votar</a><a href="/app/ranking">Ranking</a><a href="/results">Resultados</a>
+			</nav>
+			<a id="admin-link" class="admin-link" href="/admin" hidden>Administrar gala →</a>
+		</section>
+		<p id="error" class="error" role="alert" hidden></p>
+	</main>
+</Layout>
+
+<script>
+	import { getEvent, getMe } from '../../lib/api';
+	import { clearSession, getValidSession, startGoogleSignIn } from '../../lib/auth';
+	const loading = document.querySelector<HTMLElement>('#loading')!;
+	const signIn = document.querySelector<HTMLElement>('#signin')!;
+	const hub = document.querySelector<HTMLElement>('#hub')!;
+	const error = document.querySelector<HTMLElement>('#error')!;
+	const show = (node: HTMLElement) => { loading.hidden = node !== loading; signIn.hidden = node !== signIn; hub.hidden = node !== hub; };
+	const session = await getValidSession();
+	if (!session) show(signIn);
+	else {
+		try {
+			const [user, event] = await Promise.all([getMe(session.access_token), getEvent()]);
+			(document.querySelector('#name') as HTMLElement).textContent = user.display_name || 'amiga';
+			(document.querySelector('#event-status') as HTMLElement).textContent = event.effective_status === 'open' ? 'Postulaciones y votación abiertas' : event.effective_status === 'closed' ? 'La gala está cerrada' : 'Resultados publicados';
+			if (event.effective_status !== 'open') {
+				for (const id of ['photo-action','sticker-action','vote-action']) {
+					const link = document.querySelector<HTMLAnchorElement>(`#${id}`);
+					if (link) { link.setAttribute('aria-disabled','true'); link.title = 'Las postulaciones y votaciones están cerradas'; }
+				}
+			}
+			(document.querySelector('#photo-quota') as HTMLElement).textContent = `Tus postulaciones · ${user.usage.submissions.photo} / ${event.limits.max_photo_submissions}`;
+			(document.querySelector('#sticker-quota') as HTMLElement).textContent = `Tus postulaciones · ${user.usage.submissions.sticker} / ${event.limits.max_sticker_submissions}`;
+			(document.querySelector('#admin-link') as HTMLElement).hidden = user.role !== 'admin';
+			(document.querySelector('#sign-out') as HTMLElement).hidden = false;
+			show(hub);
+		} catch (e) {
+			if ((e as { status?: number }).status === 401) { clearSession(); show(signIn); }
+			else { loading.hidden = true; error.hidden = false; error.textContent = e instanceof Error ? e.message : 'No pudimos abrir tu gala.'; }
+		}
+	}
+	document.querySelector('#google')?.addEventListener('click', async () => {
+		try { await startGoogleSignIn('/app'); }
+		catch (e) { error.hidden = false; error.textContent = e instanceof Error ? e.message : 'No se pudo iniciar sesión.'; }
+	});
+	document.querySelector('#sign-out')?.addEventListener('click', () => { clearSession(); window.location.assign('/'); });
+</script>
+
+<style>
+	.app-page { min-height: 100vh; padding: max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(88px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); background: radial-gradient(ellipse at 88% 0%,#28163c,#100b1d 60%); }
+	header { display:flex; justify-content:space-between; align-items:center; max-width:980px; margin:0 auto 64px; }
+	.wordmark { color:#d8cde5; font-size:10px; letter-spacing:.16em; text-decoration:none; }
+	.quiet { border:0; color:#c3b6d0; background:none; cursor:pointer; }
+	#hub,.center { width:min(760px,100%); margin:0 auto; }
+	.center { display:grid; justify-items:center; text-align:center; padding-top:8vh; }
+	.spinner { width:28px; height:28px; border:2px solid #a77bff44; border-top-color:var(--lime); border-radius:50%; animation:spin .8s linear infinite; }
+	@keyframes spin { to { transform:rotate(360deg); } }
+	.eyebrow { color:var(--lime); font-size:10px; letter-spacing:.2em; }
+	h1 { margin:8px 0 18px; font:400 clamp(52px,12vw,82px)/.9 'Instrument Serif', Georgia, serif; letter-spacing:-.03em; }
+	h1 em { color:#c39dff; font-weight:400; }
+	.muted { color:#b7abc7; font-size:14px; }
+	.primary { display:flex; justify-content:space-between; align-items:center; gap:28px; margin-top:24px; padding:15px 18px; border:0; border-radius:4px; color:#1c1426; background:#fbf8ff; font-weight:600; cursor:pointer; }
+	.primary span { color:#6946a2; }
+	.event-state { display:flex; align-items:center; gap:9px; color:#d7c9e5; font-size:12px; }
+	.dot { width:7px; height:7px; border-radius:50%; background:var(--lime); box-shadow:0 0 12px #c1ff7280; }
+	.quota-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:38px; }
+	.quota-grid article { min-height:208px; padding:20px; border:1px solid #ffffff24; background:#ffffff08; }
+	.number { color:var(--lime); font-size:10px; }
+	.quota-grid h2 { margin:16px 0 10px; font:400 27px/1 'Instrument Serif',Georgia,serif; }
+	.quota-grid p { color:#a99ab8; font-size:11px; }
+	.quota-grid a { display:inline-block; margin-top:14px; color:#e5d8f4; font-size:12px; text-decoration:none; }
+	.quota-grid a[aria-disabled="true"],.hub-nav a[aria-disabled="true"] { opacity:.4; pointer-events:none; }
+	.quota-grid a span { margin-left:8px; color:var(--lime); }
+	.hub-nav { display:flex; justify-content:space-between; gap:12px; margin-top:22px; padding-top:18px; border-top:1px solid #ffffff24; }
+	.hub-nav a,.admin-link { color:#c8b9d8; font-size:11px; text-decoration:none; }
+	.admin-link { display:block; margin-top:24px; color:var(--lime); }
+	.error { color:#f7969c; text-align:center; }
+	@media (max-width:520px) { header { margin-bottom:40px; } .quota-grid { gap:9px; } .quota-grid article { min-height:195px; padding:14px; } .quota-grid h2 { font-size:23px; } .hub-nav { position:fixed; right:0; bottom:0; left:0; z-index:5; padding:16px 12px max(16px,env(safe-area-inset-bottom)); border-top:1px solid #ffffff20; background:#120d20ed; backdrop-filter:blur(16px); } .hub-nav a { flex:1; text-align:center; } }
+</style>

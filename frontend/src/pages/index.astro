@@ -1,11 +1,262 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const stars = Array.from({ length: 108 }, (_, index) => {
+	const column = index % 12;
+	const row = Math.floor(index / 12);
+	return {
+		x: (column + ((index * 37 % 97) + 8) / 114) * 100 / 12,
+		y: (row + ((index * 61 % 89) + 8) / 106) * 100 / 9,
+		radius: index % 13 === 0 ? 1.5 : index % 5 === 0 ? 1 : 0.65,
+		opacity: 0.18 + (index * 17 % 19) / 38,
+	};
+});
 ---
 
-<Layout>
-	<Welcome />
+<Layout description="La noche de PS: una gala para celebrar nuestras fotos y stickers favoritos.">
+	<main class="landing">
+		<div class="ambience" aria-hidden="true">
+			<svg class="starfield" fill="#eee3ff" role="presentation">
+				{stars.map(({ x, y, radius, opacity }) => (
+					<circle cx={`${x}%`} cy={`${y}%`} r={radius} opacity={opacity} />
+				))}
+			</svg>
+			<div class="halo halo-one"></div>
+			<div class="halo halo-two"></div>
+			<svg class="skyline" viewBox="0 0 840 530" preserveAspectRatio="xMaxYMax meet" role="presentation">
+				<defs>
+					<linearGradient id="mountain-fill" x2="0" y2="1">
+						<stop stop-color="#47305f" stop-opacity=".64" />
+						<stop offset="1" stop-color="#241436" stop-opacity="0" />
+					</linearGradient>
+					<linearGradient id="tower-fill" x2="0" y2="1">
+						<stop stop-color="#322047" />
+						<stop offset="1" stop-color="#241436" stop-opacity="0" />
+					</linearGradient>
+					<linearGradient id="landscape-edges" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="840" y2="0">
+						<stop stop-color="white" stop-opacity="0" />
+						<stop offset=".12" stop-color="white" />
+						<stop offset=".87" stop-color="white" />
+						<stop offset="1" stop-color="white" stop-opacity="0" />
+					</linearGradient>
+					<mask id="landscape-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="840" height="530">
+						<rect width="840" height="530" fill="url(#landscape-edges)" />
+					</mask>
+				</defs>
+				<g mask="url(#landscape-mask)" stroke-linecap="round" stroke-linejoin="round">
+					<!-- Cerros Orientales y la cima de Monserrate, detrás de la ciudad. -->
+					<path d="M0 398C59 384 104 331 155 311S222 286 264 235 319 195 348 150 388 100 423 100 476 121 508 147 550 166 592 153 644 139 681 188 747 256 840 288V530H0Z" fill="url(#mountain-fill)" />
+					<path d="M0 398C59 384 104 331 155 311S222 286 264 235 319 195 348 150 388 100 423 100 476 121 508 147 550 166 592 153 644 139 681 188 747 256 840 288" fill="none" stroke="#a382cb" stroke-opacity=".47" stroke-width="2" />
+					<path d="M19 451C94 431 140 374 209 360S314 315 352 279 430 229 480 249 546 274 595 251 665 240 707 273 784 316 838 317" fill="none" stroke="#a382cb" stroke-opacity=".25" />
+
+					<path d="M400 101V93l12-7 5 2v-9q6-10 12 0v9l5-2 12 7v10Z" fill="#433052" stroke="#a382cb" stroke-opacity=".42" stroke-width="1.2" />
+
+					<!-- Torres escalonadas y edificios bajos con esquinas redondeadas. -->
+					<g fill="url(#tower-fill)">
+						<path d="M44 530V451q0-6 6-6h41v-25q0-6 6-6h42q6 0 6 6v110Z" />
+						<path d="M132 530V387q0-7 7-7h47v-30q0-6 6-6h26q6 0 6 6v180Z" />
+						<path d="M210 530V457q0-6 6-6h50q6 0 6 6v73Z" />
+						<path d="M259 530V362q0-7 7-7h15v-36q0-6 6-6h17v-32q0-6 6-6h26q6 0 6 6v249Z" />
+						<path d="M326 530V398q0-6 6-6h48q6 0 6 6v132Z" />
+						<path d="M379 530V355q0-7 7-7h24v-28q0-6 6-6h28q6 0 6 6v210Z" />
+						<path d="M441 530V437q0-6 6-6h46q6 0 6 6v93Z" />
+						<path d="M491 530V324q0-7 7-7h18v-53q0-6 6-6h30q6 0 6 6v28h26q7 0 7 7v231Z" />
+						<path d="M574 530V407q0-6 6-6h40v-22q0-6 6-6h34q6 0 6 6v151Z" />
+						<path d="M657 530V347q0-6 6-6h24v-26q0-6 6-6h20q6 0 6 6v215Z" />
+						<path d="M709 530V431q0-6 6-6h45q6 0 6 6v99Z M759 530V460q0-6 6-6h44q6 0 6 6v70Z" />
+					</g>
+					<path d="M44 451q0-6 6-6h41v-25q0-6 6-6h35m0-27q0-7 7-7h47v-30q0-6 6-6h26q6 0 6 6v101m0 0h35m0 0v-89q0-7 7-7h15v-36q0-6 6-6h17v-32q0-6 6-6h26q6 0 6 6v111h37v-37q0-7 7-7h24v-28q0-6 6-6h28q6 0 6 6v111h41V324q0-7 7-7h18v-53q0-6 6-6h30q6 0 6 6v28h26q7 0 7 7v102h29v-22q0-6 6-6h31v-26q0-6 6-6h24v-26q0-6 6-6h20q6 0 6 6v110h41q6 0 6 6v23h43q6 0 6 6" fill="none" stroke="#a382cb" stroke-opacity=".5" stroke-width="1.6" />
+					<g fill="#c1ff72" opacity=".5">
+						<rect x="153" y="403" width="5" height="8" rx="1" /><rect x="202" y="368" width="5" height="8" rx="1" />
+						<rect x="316" y="302" width="5" height="8" rx="1" /><rect x="288" y="381" width="5" height="8" rx="1" />
+						<rect x="427" y="346" width="5" height="8" rx="1" /><rect x="461" y="451" width="5" height="8" rx="1" />
+						<rect x="534" y="281" width="5" height="8" rx="1" /><rect x="568" y="322" width="5" height="8" rx="1" />
+						<rect x="641" y="398" width="5" height="8" rx="1" /><rect x="697" y="340" width="5" height="8" rx="1" />
+					</g>
+				</g>
+			</svg>
+			<svg class="constellation" viewBox="0 0 700 440" fill="none" aria-hidden="true">
+				<defs>
+					<radialGradient id="moon-glow">
+						<stop offset=".4" stop-color="#c39dff" stop-opacity=".24" />
+						<stop offset="1" stop-color="#c39dff" stop-opacity="0" />
+					</radialGradient>
+					<radialGradient id="moon-disc" cx=".35" cy=".27" r=".75">
+						<stop stop-color="#fcf5ff" />
+						<stop offset="1" stop-color="#c5a8e4" />
+					</radialGradient>
+				</defs>
+				<circle cx="513" cy="98" r="72" fill="url(#moon-glow)" />
+				<circle cx="513" cy="98" r="35" fill="url(#moon-disc)" />
+				<g stroke="#c1ff72" stroke-opacity=".8" stroke-width="1.3" stroke-linecap="round"><path d="M235 159v12m-6-6h12"/><path d="M442 155v10m-5-5h10"/><path d="M615 255v12m-6-6h12"/><path d="M85 190v8m-4-4h8"/></g>
+			</svg>
+		</div>
+
+		<header class="topbar">
+			<a class="brand" href="/" aria-label="La noche de PS, inicio">
+				<img src="/icon.png" alt="" width="42" height="42" />
+				<span>Proyección Social <i>·</i> desde 2005</span>
+			</a>
+			<span class="top-clock">Bogotá · <time id="bogota-time" aria-label="Hora actual en Bogotá">--:--</time></span>
+		</header>
+
+		<section class="hero" aria-labelledby="hero-title">
+			<div class="hero-copy">
+				<p class="eyebrow"><span class="live-dot"></span><span id="event-state">Una noche para recordar</span></p>
+				<h1 id="hero-title">La noche<br />de <em>PS.</em></h1>
+				<p class="intro">Nuestra historia, contada en fotos y stickers.<br class="desktop-break" /> Una gala para celebrar lo que somos.</p>
+				<div class="actions">
+					<button class="google-button" id="google-sign-in" type="button">
+						<svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.1H12v3.97h5.38a4.6 4.6 0 0 1-2 3.02v2.46h3.24c1.9-1.75 2.98-4.33 2.98-7.35Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.24-2.46c-.9.6-2.03.96-3.38.96-2.6 0-4.8-1.76-5.58-4.12H3.08v2.54A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.42 13.96a6 6 0 0 1 0-3.92V7.5H3.08a10 10 0 0 0 0 9l3.34-2.54Z"/><path fill="#EA4335" d="M12 5.92c1.47 0 2.79.5 3.83 1.5l2.88-2.88C16.96 2.9 14.7 2 12 2a10 10 0 0 0-8.92 5.5l3.34 2.54C7.2 7.68 9.4 5.92 12 5.92Z"/></svg>
+						<span>Continuar con Google</span>
+						<span class="button-arrow" aria-hidden="true">↗</span>
+					</button>
+					<p class="signin-note" id="signin-note" aria-live="polite">Entra para postular y votar</p>
+				</div>
+				<div class="category-list" id="categorias">
+					<div class="category"><span class="category-index">01</span><span>Mejor foto<br />de la historia</span><span class="category-star" aria-hidden="true">✳</span></div>
+					<div class="category"><span class="category-index">02</span><span>Mejor sticker<br />de la historia</span><span class="category-star" aria-hidden="true">✳</span></div>
+				</div>
+				<a class="results-link" href="/results">Ver resultados publicados <span aria-hidden="true">→</span></a>
+			</div>
+		</section>
+
+		<footer class="footer"><span>PS <span class="footer-star">✳</span> 20 años de historias</span><span class="footer-right">Nos vemos bajo las estrellas <span aria-hidden="true">✦</span></span></footer>
+		<div class="status-toast" id="status-toast" role="status" aria-live="polite"></div>
+	</main>
 </Layout>
+
+<script>
+	import { ApiError, getEvent } from '../lib/api';
+	import { startGoogleSignIn } from '../lib/auth';
+
+	const statusLabel = document.querySelector<HTMLElement>('#event-state');
+	const toast = document.querySelector<HTMLElement>('#status-toast');
+	const signInNote = document.querySelector<HTMLElement>('#signin-note');
+	const signInButton = document.querySelector<HTMLButtonElement>('#google-sign-in');
+	const bogotaTime = document.querySelector<HTMLTimeElement>('#bogota-time');
+	const bogotaClock = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: false });
+	function updateBogotaTime() {
+		if (!bogotaTime) return;
+		const now = new Date();
+		bogotaTime.textContent = bogotaClock.format(now);
+		bogotaTime.dateTime = now.toISOString();
+	}
+	updateBogotaTime();
+	window.setInterval(updateBogotaTime, 30_000);
+
+	function showMessage(message: string) {
+		if (!toast) return;
+		toast.textContent = message;
+		toast.classList.add('visible');
+		window.setTimeout(() => toast.classList.remove('visible'), 4200);
+	}
+
+	signInButton?.addEventListener('click', async () => {
+		try {
+			await startGoogleSignIn('/app');
+		} catch (error) {
+			showMessage(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+		}
+	});
+
+	async function loadEvent() {
+		try {
+		const event = await getEvent();
+		eventLoaded = true;
+		if (statusLabel) {
+			statusLabel.textContent = event.effective_status === 'open'
+				? 'La votación está abierta'
+				: event.effective_status === 'closed'
+					? 'La gala está cerrada'
+					: 'Resultados publicados';
+		}
+		if (event.effective_status === 'closed' && signInNote) signInNote.textContent = 'Inicia sesión para consultar tu perfil';
+	} catch (error) {
+		if (statusLabel) statusLabel.textContent = error instanceof ApiError ? 'No pudimos cargar el estado' : 'Sin conexión con la gala';
+		if (signInNote) signInNote.textContent = 'Puedes volver a intentarlo';
+	}
+	}
+	void loadEvent();
+</script>
+
+<style>
+	.landing { position: relative; isolation: isolate; display: flex; flex-direction: column; height: 100vh; height: 100svh; overflow: hidden; padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); background: radial-gradient(ellipse at 76% 45%, #28163c 0, #1a1028 33%, var(--night) 74%); }
+	.topbar, .footer { z-index: 2; display: flex; align-items: center; justify-content: space-between; }
+	.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #e3d9ed; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
+	.brand img { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; }
+	.brand i { color: var(--lime); font-style: normal; }
+	.top-clock { padding: 10px 0 10px 10px; color: #d8cde5; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+	.hero { position: relative; z-index: 1; flex: 1; display: flex; align-items: center; width: min(1160px, 100%); margin: 0 auto; padding: 22px 0 42px; }
+	.hero-copy { position: relative; z-index: 2; width: min(500px, 100%); padding: 12px 0; }
+	.eyebrow { display: flex; align-items: center; gap: 10px; margin: 0 0 13px; color: var(--lime); font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+	.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 12px #c1ff72a6; }
+	h1 { margin: 0; color: #f9f3ff; font-family: 'Instrument Serif', Georgia, serif; font-size: clamp(68px, 9vw, 112px); font-weight: 400; letter-spacing: -.045em; line-height: .78; }
+	h1 em { color: #c39dff; font-weight: 400; }
+	.intro { margin: 24px 0 25px; color: #c3b6d0; font-size: 14px; line-height: 1.65; }
+	.actions { display: flex; align-items: center; gap: 14px; }
+	.google-button { display: inline-flex; align-items: center; gap: 11px; min-height: 50px; padding: 0 15px; border: 1px solid #f5edff; border-radius: 4px; color: #1c1426; background: #fbf8ff; cursor: pointer; font-size: 13px; font-weight: 600; transition: transform .18s, background .18s; }
+	.google-button:hover { transform: translateY(-2px); background: white; }
+	.button-arrow { margin-left: 5px; color: #68449d; }
+	.signin-note { max-width: 110px; margin: 0; color: #9c8eaa; font-size: 10px; line-height: 1.5; }
+	.category-list { display: flex; width: min(410px, 100%); margin-top: 30px; border-top: 1px solid #ffffff26; }
+	.category { position: relative; display: flex; flex: 1; align-items: flex-start; gap: 9px; padding: 13px 10px 0 0; color: #e2d8ed; font-family: 'Instrument Serif', Georgia, serif; font-size: 16px; line-height: 1.1; }
+	.category + .category { padding-left: 16px; border-left: 1px solid #ffffff26; }
+	.category-index { margin-top: 2px; color: var(--lime); font: 9px 'DM Sans', sans-serif; }
+	.category-star { position: absolute; top: 14px; right: 12px; color: #aa83e6; font-size: 11px; }
+	.results-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: #b7a6c8; font-size: 10px; text-decoration: none; }
+	.results-link:hover { color: var(--lime); }
+	.footer { color: #9687a6; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+	.footer-star, .footer-right span { color: var(--lime); }
+	.footer-right { letter-spacing: .04em; text-transform: none; }
+	.ambience { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+	.starfield { position: absolute; inset: 0; width: 100%; height: 100%; }
+	.skyline { position: absolute; right: 0; bottom: 0; width: 61%; height: 77%; opacity: .56; }
+	.constellation { position: absolute; top: 8%; right: 5%; width: min(51vw, 660px); height: 48%; opacity: .85; }
+	.halo { position: absolute; border: 1px solid #b797ff20; border-radius: 50%; transform: rotate(-22deg); }
+	.halo-one { top: 15%; right: -12%; width: 72vw; height: 34vw; }
+	.halo-two { top: 22%; right: -11%; width: 78vw; height: 42vw; border-color: #c1ff7214; }
+	.status-toast { position: absolute; z-index: 5; right: 24px; bottom: 62px; max-width: min(320px, calc(100vw - 48px)); padding: 12px 15px; border: 1px solid #a77bff55; border-radius: 4px; color: #f8f1ff; background: #211632ed; font-size: 12px; opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+	.status-toast.visible { opacity: 1; transform: translateY(0); }
+	@media (min-width: 760px) { .landing { padding-inline: clamp(34px, 6vw, 88px); } .brand img { width: 38px; height: 38px; } .brand { font-size: 11px; } .top-clock { font-size: 11px; } .hero { padding-bottom: 30px; } .hero-copy { width: 47%; } .intro { font-size: 16px; } .category { font-size: 18px; } .skyline { width: 60%; height: 78%; } }
+	@media (max-width: 600px) {
+		.landing { padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+		.topbar { min-height: 34px; }
+		.brand { gap: 8px; font-size: 9px; letter-spacing: .11em; }
+		.brand img { width: 30px; height: 30px; }
+		.top-clock { font-size: 9px; letter-spacing: .08em; }
+		.hero { align-items: center; padding: 24px 0 30px; }
+		.hero-copy { width: 100%; max-width: 420px; padding: 0; }
+		.eyebrow { margin-bottom: 15px; font-size: 9px; letter-spacing: .15em; }
+		h1 { font-size: clamp(66px, 18vw, 78px); line-height: .82; }
+		.intro { margin: 22px 0 25px; font-size: 14px; line-height: 1.7; }
+		.desktop-break { display: none; }
+		.actions { align-items: flex-start; flex-direction: column; gap: 9px; }
+		.google-button { width: min(100%, 330px); min-height: 52px; justify-content: center; padding-inline: 16px; font-size: 13px; }
+		.signin-note { max-width: none; padding-left: 2px; font-size: 11px; }
+		.category-list { width: 100%; margin-top: 26px; }
+		.category { min-height: 58px; gap: 8px; padding: 15px 8px 0 0; font-size: 16px; }
+		.category + .category { padding-left: 13px; }
+		.category-star { top: 15px; right: 8px; }
+		.results-link { margin-top: 16px; font-size: 11px; }
+		.skyline { display: none; }
+		.constellation { top: 11%; right: -9%; width: 82vw; height: 42%; opacity: .7; }
+		.halo-one { top: 20%; right: -45%; width: 130vw; height: 68vw; }
+		.halo-two { top: 25%; right: -51%; width: 138vw; height: 78vw; }
+		.footer > span:first-child, .footer-right { display: none; }
+		.footer { font-size: 8px; }
+	}
+	@media (max-width: 390px) {
+		.landing { padding-inline: max(17px, env(safe-area-inset-left)) max(17px, env(safe-area-inset-right)); }
+		.brand { font-size: 8px; }
+		.category { font-size: 15px; }
+	}
+	@media (max-height: 700px) and (max-width: 600px) {
+		.hero { padding-block: 14px 18px; }
+		.eyebrow { margin-bottom: 10px; }
+		h1 { font-size: 62px; }
+		.intro { margin: 14px 0 17px; }
+		.category-list { margin-top: 18px; }
+	}
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+</style>

@@ -19,7 +19,6 @@ export class VotesService {
       const [profile] = await tx.select().from(profiles).where(eq(profiles.id, userId)).for('update');
       if (!profile) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No se encontró el perfil.' });
       if (profile.isBlocked) throw new ForbiddenException({ code: 'ACCOUNT_BLOCKED', message: 'La cuenta está bloqueada.' });
-      if (!profile.humanVerifiedAt) throw new ForbiddenException({ code: 'HUMAN_VERIFICATION_REQUIRED', message: 'Completa la verificación humana.' });
       if (ids.length > settings.maxVotesPerCategory || new Set(ids).size !== ids.length) throw this.validationError();
       const candidates = ids.length ? await tx.select().from(submissions).where(and(
         inArray(submissions.id, ids), eq(submissions.category, category), eq(submissions.status, 'published'),

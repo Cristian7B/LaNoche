@@ -64,7 +64,6 @@ export class IntakesService implements OnApplicationBootstrap {
       const [profile] = await tx.select().from(profiles).where(eq(profiles.id, userId)).for('update');
       if (!profile) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No se encontró el perfil.' });
       if (profile.isBlocked) throw new ForbiddenException({ code: 'ACCOUNT_BLOCKED', message: 'La cuenta está bloqueada.' });
-      if (!profile.humanVerifiedAt) throw new ForbiddenException({ code: 'HUMAN_VERIFICATION_REQUIRED', message: 'Completa la verificación humana.' });
       const [intake] = await tx.select().from(whatsappIntakes).where(eq(whatsappIntakes.tokenHash, tokenHash)).for('update');
       if (!intake) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No se encontró el intake.' });
       const [clock] = await tx.select({ serverTime: sql<Date>`clock_timestamp()`.mapWith({ mapFromDriverValue: (value) => new Date(value as string | number) }) })

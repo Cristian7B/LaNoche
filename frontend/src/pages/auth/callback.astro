@@ -1,0 +1,40 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Acceso seguro · La noche de PS">
+	<main class="callback" aria-live="polite">
+		<div class="mark">✳</div>
+		<p class="eyebrow">LA NOCHE DE PS</p>
+	<h1 id="callback-title">Entrando a la gala</h1>
+	<p id="callback-message">Estamos verificando tu acceso seguro.</p>
+	<a id="callback-retry" href="/" hidden>Volver al inicio</a>
+	</main>
+</Layout>
+
+<script>
+	import { finishOAuthCallback } from '../../lib/auth';
+
+	const title = document.querySelector<HTMLElement>('#callback-title');
+	const message = document.querySelector<HTMLElement>('#callback-message');
+	const retry = document.querySelector<HTMLAnchorElement>('#callback-retry');
+	try {
+		const authSearch = window.location.search;
+		window.history.replaceState({}, '', '/auth/callback');
+		const destination = await finishOAuthCallback(authSearch);
+		window.location.replace(destination);
+	} catch (error) {
+		if (title) title.textContent = 'No pudimos iniciar sesión';
+		if (message) message.textContent = error instanceof Error ? error.message : 'Vuelve a intentarlo.';
+		if (retry) retry.hidden = false;
+	}
+</script>
+
+<style>
+	.callback { min-height: 100vh; display: grid; align-content: center; justify-items: center; padding: 28px; text-align: center; background: radial-gradient(ellipse at 50% 30%, #28163c, #100b1d 70%); }
+	.mark { display: grid; place-items: center; width: 52px; height: 52px; border: 1px solid #c1ff7255; border-radius: 50%; color: var(--lime); font-size: 24px; }
+	.eyebrow { margin: 24px 0 10px; color: var(--lime); font-size: 10px; letter-spacing: .2em; }
+	h1 { margin: 0; font: 400 40px/1 'Instrument Serif', Georgia, serif; }
+	#callback-message { color: #b7abc7; font-size: 14px; }
+	#callback-retry { margin-top: 16px; color: var(--lime); }
+</style>

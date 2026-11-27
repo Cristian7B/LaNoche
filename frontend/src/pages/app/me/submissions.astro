@@ -1,0 +1,54 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout title="Mis postulaciones · La noche de PS">
+	<main class="mine">
+		<header><a href="/app">← Tu gala</a><a href="/app/submissions/new">+ Postular</a></header>
+		<section class="content"><p class="eyebrow">TU ARCHIVO</p><h1>Mis <em>postulaciones.</em></h1><p id="message" class="message">Cargando tus postulaciones…</p><div id="cards" class="cards"></div></section>
+	</main>
+</Layout>
+
+<script>
+	import { apiRequest, getEvent, getMe } from '../../../lib/api';
+	import { getValidSession, startGoogleSignIn } from '../../../lib/auth';
+	type Submission={id:string;category:'photo'|'sticker';title:string;description:string;status:'published'|'deleted';source:string;delete_reason?:string;media:{url:string;thumb_url:string;kind:string}[]};
+	const message=document.querySelector<HTMLElement>('#message')!; const cards=document.querySelector<HTMLElement>('#cards')!;
+	const session=await getValidSession();
+	if(!session){message.textContent='Inicia sesión para consultar tus postulaciones.';const login=document.createElement('button');login.className='login';login.textContent='Continuar con Google ↗';login.onclick=async()=>{try{await startGoogleSignIn('/app/me/submissions');}catch(e){message.textContent=e instanceof Error?e.message:'No se pudo iniciar sesión.';}};message.after(login);}
+	else try {
+		const [items,event,user]=await Promise.all([apiRequest<Submission[]>('/me/submissions',{accessToken:session.access_token}),getEvent(),getMe(session.access_token)]);
+		const isOpen=event.effective_status==='open';
+		let humanVerified=user.human_verified;let humanToken='';let humanWidget:string|undefined;let humanContainer:HTMLElement|undefined;
+		message.textContent=items.length?`${items.length} postulaciones · los estados reflejan lo que indica la gala.`:'Todavía no has postulado. Tu primera historia te espera.';
+		for(const item of items){
+			const card=document.createElement('article');card.className=`card ${item.status}`;
+			const media=item.media[0]; if(media){const image=document.createElement(media.kind==='video'?'video':'img');if(image instanceof HTMLVideoElement){image.src=media.url;image.poster=media.thumb_url;image.controls=true;image.preload='metadata';}else{image.src=media.thumb_url||media.url;image.alt=`Vista previa: ${item.title}`;}card.append(image);}
+			const info=document.createElement('div');info.className='info';
+			const tag=document.createElement('span');tag.className='tag';tag.textContent=item.category==='photo'?'MEJOR FOTO':'MEJOR STICKER';
+			const title=document.createElement('h2');title.textContent=item.title;
+			const desc=document.createElement('p');desc.textContent=item.description;
+			const state=document.createElement('small');state.textContent=item.status==='deleted'?`Eliminada${item.delete_reason?`: ${item.delete_reason}`:''}`:'Publicada';
+			info.append(tag,title,desc,state);card.append(info);
+			if(isOpen&&item.status==='published'){
+				const controls=document.createElement('div');controls.className='controls';
+				const edit=document.createElement('button');edit.textContent='Editar texto';edit.onclick=()=>{
+					const panel=document.createElement('form');panel.className='edit-form';
+					const titleLabel=document.createElement('label');titleLabel.textContent='Título';const titleInput=document.createElement('input');titleInput.name='title';titleInput.value=item.title;titleInput.minLength=3;titleInput.maxLength=120;titleInput.required=true;titleLabel.append(titleInput);
+					const descriptionLabel=document.createElement('label');descriptionLabel.textContent='Descripción';const descriptionInput=document.createElement('textarea');descriptionInput.name='description';descriptionInput.value=item.description;descriptionInput.minLength=10;descriptionInput.maxLength=1000;descriptionInput.required=true;descriptionLabel.append(descriptionInput);
+					const verify=document.createElement('div');const save=document.createElement('button');save.textContent='Guardar';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancelar';cancel.onclick=()=>{panel.replaceWith(controls);};
+					panel.append(titleLabel,descriptionLabel,verify,save,cancel);controls.replaceWith(panel);
+					panel.onsubmit=async(e)=>{e.preventDefault();save.disabled=true;try{await apiRequest(`/submissions/${item.id}`,{method:'PATCH',accessToken:session.access_token,body:JSON.stringify({title:titleInput.value,description:descriptionInput.value})});window.location.reload();}catch(err){message.textContent=err instanceof Error?err.message:'No se pudo editar.';save.disabled=false;}};
+				};
+				const remove=document.createElement('button');remove.textContent='Eliminar';const verify=document.createElement('div');remove.onclick=async()=>{if(!window.confirm('¿Eliminar esta postulación?'))return;remove.disabled=true;try{await apiRequest<void>(`/submissions/${item.id}`,{method:'DELETE',accessToken:session.access_token});window.location.reload();}catch(err){message.textContent=err instanceof Error?err.message:'No se pudo eliminar.';remove.disabled=false;}};
+				controls.append(edit,remove,verify);card.append(controls);
+			}
+			cards.append(card);
+		}
+	} catch(error){message.textContent=error instanceof Error?error.message:'No pudimos cargar tus postulaciones.';}
+</script>
+
+<style>
+	.mine{min-height:100vh;padding:max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 60px max(20px,env(safe-area-inset-left));background:radial-gradient(ellipse at 85% 0%,#28163c,#100b1d 60%)}
+	header{display:flex;justify-content:space-between;max-width:900px;margin:0 auto 58px}header a{color:#d7c8e6;font-size:11px;text-decoration:none}.content{width:min(900px,100%);margin:0 auto}.eyebrow,.tag{color:var(--lime);font-size:9px;letter-spacing:.18em}.content h1{margin:10px 0 14px;font:400 clamp(46px,10vw,72px)/.95 'Instrument Serif',Georgia,serif}.content h1 em{color:#c39dff}.message{color:#afa1bd;font-size:12px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}.card{overflow:hidden;border:1px solid #ffffff20;background:#ffffff07}.card>img,.card>video{display:block;width:100%;height:200px;object-fit:cover;background:#251936}.info{padding:16px}.info h2{margin:8px 0;color:#f1e8fb;font:24px 'Instrument Serif',Georgia,serif}.info p{min-height:35px;color:#ab9eb9;font-size:11px;line-height:1.5}.info small{color:#b89bda;font-size:9px}.deleted{opacity:.64}.controls{display:flex;gap:12px;padding:0 16px 16px}.controls button,.edit-form button{padding:8px 10px;border:1px solid #ffffff2a;color:#e6dcf2;background:transparent;font-size:10px;cursor:pointer}.controls button:last-child{color:#f7969c}.edit-form{display:grid;gap:8px;padding:0 16px 16px}.edit-form input,.edit-form textarea{padding:10px;border:1px solid #ffffff2a;color:#f6efff;background:#191127;font:12px 'DM Sans',sans-serif}.edit-form button{justify-self:start}.edit-form button[type=button]{margin-left:4px}@media(max-width:600px){.cards{grid-template-columns:1fr}header{margin-bottom:42px}}
+</style>

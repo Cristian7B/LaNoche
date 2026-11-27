@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { UploadedFilesCleanupInterceptor } from '../common/uploaded-files-cleanup.interceptor.js';
 import { Throttle } from '@nestjs/throttler';
 import type { AuthRequest } from '../auth/auth.types.js';
-import { HumanVerifiedGuard } from '../auth/verification.guard.js';
 import { SubmissionsService } from './submissions.service.js';
 
 const categorySchema = z.enum(['photo', 'sticker']);
@@ -38,7 +37,6 @@ export class SubmissionsController {
 
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(HumanVerifiedGuard)
   @UseInterceptors(FilesInterceptor('files', 10, {
     storage: diskStorage({ destination: tmpdir() }),
     limits: { files: 10, fileSize: Math.max(Number(process.env.MAX_IMAGE_BYTES ?? 10_485_760), Number(process.env.MAX_STICKER_BYTES ?? 10_485_760)) },
@@ -57,14 +55,12 @@ export class SubmissionsController {
   }
 
   @Patch(':id')
-  @UseGuards(HumanVerifiedGuard)
   edit(@Param('id', { schema: idSchema }) id: string, @Body({ schema: updateSchema }) body: z.infer<typeof updateSchema>, @Req() request: AuthRequest) {
     return this.submissions.edit(request.user!.id, id, body);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  @UseGuards(HumanVerifiedGuard)
   async remove(@Param('id', { schema: idSchema }) id: string, @Req() request: AuthRequest) {
     await this.submissions.remove(request.user!.id, id);
   }

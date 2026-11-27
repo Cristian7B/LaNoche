@@ -76,7 +76,6 @@ export class SubmissionsService {
         const [profile] = await tx.select().from(profiles).where(eq(profiles.id, userId)).for('update');
         if (!profile) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No se encontró el perfil.' });
         if (profile.isBlocked) throw new ForbiddenException({ code: 'ACCOUNT_BLOCKED', message: 'La cuenta está bloqueada.' });
-        if (!profile.humanVerifiedAt) throw new ForbiddenException({ code: 'HUMAN_VERIFICATION_REQUIRED', message: 'Completa la verificación humana.' });
         const quota = input.category === 'photo' ? event.maxPhotoSubmissions : event.maxStickerSubmissions;
         const [current] = await tx.select({ value: count() }).from(submissions).where(and(
           eq(submissions.authorId, userId), eq(submissions.category, input.category), eq(submissions.status, 'published'),
@@ -195,7 +194,6 @@ export class SubmissionsService {
   private assertWritable(profile: typeof profiles.$inferSelect | undefined) {
     if (!profile) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No se encontró el perfil.' });
     if (profile.isBlocked) throw new ForbiddenException({ code: 'ACCOUNT_BLOCKED', message: 'La cuenta está bloqueada.' });
-    if (!profile.humanVerifiedAt) throw new ForbiddenException({ code: 'HUMAN_VERIFICATION_REQUIRED', message: 'Completa la verificación humana.' });
   }
 
   private mapRows(rows: { submission: typeof submissions.$inferSelect; media: typeof submissionMedia.$inferSelect | null }[], userId: string, includeOwnerStatus = false) {
