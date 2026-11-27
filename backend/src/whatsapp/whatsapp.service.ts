@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, HttpException, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
+import { PinoLogger } from 'nestjs-pino';
 import { and, count, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -37,6 +38,10 @@ type ReplyType = 'evento_cerrado' | 'ayuda' | 'cupo_agotado' | 'enlace_sticker';
 const deliveryLabels = new Map([
   ['sent', 'enviado'], ['delivered', 'entregado'], ['read', 'leído'], ['failed', 'fallido'],
 ]);
+
+function objectKeys(value: unknown) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? Object.keys(value).sort() : [];
+}
 
 function maskPhone(value: unknown) {
   return typeof value === 'string' && /^\+?\d{5,15}$/.test(value) ? `****${value.slice(-4)}` : undefined;
@@ -90,11 +95,24 @@ export class WhatsappService implements OnApplicationBootstrap {
     const { messages, statuses } = this.extractNotifications(payload);
     for (const status of statuses) this.logDelivery(status);
     const inserted: number[] = [];
-    for (const message of messages) {
-      if (!message || typeof message.id !== 'string' || !message.id || typeof message.from !== 'string' || !message.from ||
-        typeof message.type !== 'string' || !message.type) {
-        this.logger.warn({ mensajeId: typeof message?.id === 'string' ? logId(message.id) : undefined,
-          faltaNumero: typeof message?.from !== 'string' || !message.from }, 'WhatsApp: se ignoró un mensaje con datos incompletos');
+    for (const { message, contacts } of messages) {
+      if (typeof message?.from !== 'string' || !message.from) {
+        const messageKeys = objectKeys(message);
+        const contactKeys = contacts.map(objectKeys);
+        // Use the root logger so the diagnostic does not inherit HTTP request metadata.
+        PinoLogger.root.warn({
+          messageKeys, contactKeys,
+          hasMessageFrom: messageKeys.includes('from'),
+          hasMessageFromUserId: messageKeys.includes('from_user_id'),
+          hasMessageFromParentUserId: messageKeys.includes('from_parent_user_id'),
+          hasContactWaId: contactKeys.some((keys) => keys.includes('wa_id')),
+          hasContactUserId: contactKeys.some((keys) => keys.includes('user_id')),
+          hasContactParentUserId: contactKeys.some((keys) => keys.includes('parent_user_id')),
+        }, 'WhatsApp: mensaje sin remitente');
+        continue;
+      }
+      if (typeof message.id !== 'string' || !message.id || typeof message.type !== 'string' || !message.type) {
+        this.logger.warn('WhatsApp: se ignoró un mensaje con datos incompletos');
         continue;
       }
       const fields = { mensajeId: logId(message.id), tipo: message.type, numero: maskPhone(message.from) };
@@ -398,7 +416,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   private extractNotifications(payload: unknown) {
-    const messages: IncomingMessage[] = [];
+    const messages: { message: IncomingMessage; contacts: unknown[] }[] = [];
     const statuses: DeliveryStatus[] = [];
     const entries = typeof payload === 'object' && payload !== null ? (payload as { entry?: unknown }).entry : undefined;
     if (!Array.isArray(entries)) return { messages, statuses };
@@ -407,8 +425,11 @@ export class WhatsappService implements OnApplicationBootstrap {
       const changes = (entry as { changes?: unknown[] }).changes;
       if (!Array.isArray(changes)) continue;
       for (const change of changes) {
-        const value = typeof change === 'object' && change !== null ? (change as { value?: { messages?: unknown; statuses?: unknown } }).value : undefined;
-        if (Array.isArray(value?.messages)) messages.push(...value.messages as IncomingMessage[]);
+        const value = typeof change === 'object' && change !== null ? (change as { value?: { messages?: unknown; contacts?: unknown; statuses?: unknown } }).value : undefined;
+        if (Array.isArray(value?.messages)) {
+          const contacts = Array.isArray(value.contacts) ? value.contacts as unknown[] : [];
+          for (const message of value.messages as IncomingMessage[]) messages.push({ message, contacts });
+        }
         if (Array.isArray(value?.statuses)) statuses.push(...value.statuses as DeliveryStatus[]);
       }
     }

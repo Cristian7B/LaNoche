@@ -56,6 +56,29 @@ describe('Logs de WhatsApp', () => {
 
   afterAll(() => Logger.overrideLogger(false));
 
+  test('diagnostica el remitente ausente usando solo las claves del bloque correspondiente', async () => {
+    const { module, service, insert } = await createService();
+    try {
+      const accepted = await pinoLogger.runInContext(() => service.accept({ entry: [{ changes: [
+        { value: { contacts: [{ parent_user_id: 'otro-bloque' }] } },
+        { value: { messages: [{ id: incomingId, type: 'text', text: { body: privateText }, from_user_id: 'CO.identificador' }],
+          contacts: [{ wa_id: phone, profile: { name: 'nombre-privado' }, user_id: 'CO.identificador' }] } },
+      ] }] }), { bindings: { req: { url: 'https://example.test/privado' } } });
+      expect(accepted).toBe(0);
+      expect(insert).not.toHaveBeenCalled();
+      const line = logLines.find((line) => line.includes('WhatsApp: mensaje sin remitente'))!;
+      expect(JSON.parse(line)).toMatchObject({
+        messageKeys: ['from_user_id', 'id', 'text', 'type'], contactKeys: [['profile', 'user_id', 'wa_id']],
+        hasMessageFrom: false, hasMessageFromUserId: true, hasContactWaId: true, hasContactParentUserId: false,
+      });
+      for (const value of [phone, privateText, incomingId, 'CO.identificador', 'nombre-privado', 'https://example.test/privado']) {
+        expect(line).not.toContain(value);
+      }
+    } finally {
+      await module.close();
+    }
+  });
+
   test('correlaciona recepción, persistencia, envío y entrega sin registrar el teléfono ni el contenido', async () => {
     vi.stubEnv('WA_ACCESS_TOKEN', 'test-token');
     vi.stubEnv('WA_PHONE_NUMBER_ID', '1');
