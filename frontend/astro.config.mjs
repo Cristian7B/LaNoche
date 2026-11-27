@@ -15,4 +15,7 @@ const intakeDevRewrite = {
 };
 
 // https://astro.build/config
-export default defineConfig({ vite: { plugins: [intakeDevRewrite] } });
+export default defineConfig({
+	site: 'https://lanocheps.proysocial.org',
+	vite: { plugins: [intakeDevRewrite] },
+});
