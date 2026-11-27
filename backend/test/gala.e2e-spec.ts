@@ -58,6 +58,7 @@ let webp: Buffer;
 let createdDatabase = false;
 let adminIdentity: ReturnType<typeof participant> | undefined;
 const graphReplies = new Map<string, string[]>();
+const graphAddressFields = new Map<string, { to?: string; recipient?: string }>();
 const graphTimeouts = new Map<string, number>();
 const metaMediaUrl = 'https://lookaside.fbsbx.com/fixture-sticker';
 const hasVideoTools = ['ffmpeg', 'ffprobe'].every(
@@ -126,15 +127,19 @@ beforeAll(async () => {
         if (typeof options?.body !== 'string')
           throw new Error('Expected a Graph JSON payload.');
         const body = JSON.parse(options.body) as {
-          to: string;
+          to?: string;
+          recipient?: string;
           text: { body: string };
         };
-        const replies = graphReplies.get(body.to) ?? [];
+        const target = body.to ?? body.recipient;
+        if (!target) throw new Error('Expected a WhatsApp recipient.');
+        graphAddressFields.set(target, { to: body.to, recipient: body.recipient });
+        const replies = graphReplies.get(target) ?? [];
         replies.push(body.text.body);
-        graphReplies.set(body.to, replies);
-        const timeouts = graphTimeouts.get(body.to) ?? 0;
+        graphReplies.set(target, replies);
+        const timeouts = graphTimeouts.get(target) ?? 0;
         if (timeouts > 0) {
-          graphTimeouts.set(body.to, timeouts - 1);
+          graphTimeouts.set(target, timeouts - 1);
           throw new DOMException(
             'Simulated lost acknowledgement',
             'TimeoutError',
@@ -924,12 +929,13 @@ describe('Recepción de WhatsApp y reclamo de stickers', () => {
     },
   });
   const receive = (
-    message: ReturnType<typeof stickerMessage>,
+    message: Omit<ReturnType<typeof stickerMessage>, 'from'> & { from?: string; from_user_id?: string },
     valid = true,
     path = '/webhooks/whatsapp',
+    contacts?: { wa_id: string; user_id: string }[],
   ) => {
     const payload = JSON.stringify({
-      entry: [{ changes: [{ value: { messages: [message] } }] }],
+      entry: [{ changes: [{ value: { messages: [message], contacts } }] }],
     });
     const signature = createHmac(
       'sha256',
@@ -972,6 +978,25 @@ describe('Recepción de WhatsApp y reclamo de stickers', () => {
     await receive(message).expect(200);
     return { message, token: await waitReply(message) };
   };
+
+  test.each(['teléfono', 'teléfono y BSUID', 'solo BSUID'])('responde a un sticker identificado por %s', async (identity) => {
+    const fixture = stickerMessage();
+    const bsuid = `CO.${randomUUID().replaceAll('-', '')}`;
+    const from = identity === 'solo BSUID' ? undefined : fixture.from;
+    const fromUserId = identity === 'teléfono' ? undefined : bsuid;
+    const target = from ?? bsuid;
+    const otherContact = { wa_id: '573000001234', user_id: 'CO.otraPersona' };
+    await receive({ ...fixture, from, from_user_id: fromUserId }, true, '/webhooks/whatsapp', [otherContact]).expect(200);
+    await vi.waitFor(async () => {
+      const [row] = await db`select status, reply_sent_at from whatsapp_intakes where wa_message_id = ${fixture.id}`;
+      expect(row?.status).toBe('ready');
+      expect(row.reply_sent_at).toBeTruthy();
+    }, 7000);
+    expect(graphAddressFields.get(target)).toStrictEqual({ to: from, recipient: from ? undefined : bsuid });
+    expect(graphReplies.get(target)?.at(-1)).toMatch(/\/s\/[\w-]{43}/);
+    expect(graphReplies.get(otherContact.wa_id)).toBeUndefined();
+    expect(graphReplies.get(otherContact.user_id)).toBeUndefined();
+  });
 
   test('AC-19 rechaza una firma inválida sin persistir recepción ni intake', async () => {
     const message = stickerMessage();

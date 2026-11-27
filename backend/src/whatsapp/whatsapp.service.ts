@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, HttpException, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { PinoLogger } from 'nestjs-pino';
 import { and, count, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -15,12 +14,13 @@ import { EventService } from '../event/event.service.js';
 import { MediaService } from '../media/media.service.js';
 import { StorageService } from '../media/storage.service.js';
 import { CryptoService } from './crypto.service.js';
-import { GraphClient, GraphResponseError } from './graph-client.js';
+import { GraphClient, GraphResponseError, type WhatsAppRecipient } from './graph-client.js';
 import { botMessages } from './messages.js';
 
 interface IncomingMessage {
   id?: string;
   from?: string;
+  from_user_id?: string;
   type?: string;
   sticker?: { id?: string; mime_type?: string; sha256?: string; animated?: boolean };
 }
@@ -39,12 +39,11 @@ const deliveryLabels = new Map([
   ['sent', 'enviado'], ['delivered', 'entregado'], ['read', 'leído'], ['failed', 'fallido'],
 ]);
 
-function objectKeys(value: unknown) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? Object.keys(value).sort() : [];
-}
+const phonePattern = /^\+?\d{5,15}$/;
+const bsuidPrefix = 'bsuid:';
 
 function maskPhone(value: unknown) {
-  return typeof value === 'string' && /^\+?\d{5,15}$/.test(value) ? `****${value.slice(-4)}` : undefined;
+  return typeof value === 'string' && phonePattern.test(value) ? `****${value.slice(-4)}` : undefined;
 }
 
 function logId(id: string) {
@@ -95,30 +94,20 @@ export class WhatsappService implements OnApplicationBootstrap {
     const { messages, statuses } = this.extractNotifications(payload);
     for (const status of statuses) this.logDelivery(status);
     const inserted: number[] = [];
-    for (const { message, contacts } of messages) {
-      if (typeof message?.from !== 'string' || !message.from) {
-        const messageKeys = objectKeys(message);
-        const contactKeys = contacts.map(objectKeys);
-        // Use the root logger so the diagnostic does not inherit HTTP request metadata.
-        PinoLogger.root.warn({
-          messageKeys, contactKeys,
-          hasMessageFrom: messageKeys.includes('from'),
-          hasMessageFromUserId: messageKeys.includes('from_user_id'),
-          hasMessageFromParentUserId: messageKeys.includes('from_parent_user_id'),
-          hasContactWaId: contactKeys.some((keys) => keys.includes('wa_id')),
-          hasContactUserId: contactKeys.some((keys) => keys.includes('user_id')),
-          hasContactParentUserId: contactKeys.some((keys) => keys.includes('parent_user_id')),
-        }, 'WhatsApp: mensaje sin remitente');
-        continue;
-      }
-      if (typeof message.id !== 'string' || !message.id || typeof message.type !== 'string' || !message.type) {
+    for (const message of messages) {
+      const phone = typeof message?.from === 'string' && phonePattern.test(message.from) ? message.from : undefined;
+      const bsuid = typeof message?.from_user_id === 'string' ? message.from_user_id.trim() : '';
+      // Keep the existing encrypted phone format and namespace BSUIDs for queued replies and quotas.
+      const sender = phone ?? (bsuid ? `${bsuidPrefix}${bsuid}` : undefined);
+      if (!sender || typeof message?.id !== 'string' || !message.id || typeof message.type !== 'string' || !message.type) {
         this.logger.warn('WhatsApp: se ignoró un mensaje con datos incompletos');
         continue;
       }
-      const fields = { mensajeId: logId(message.id), tipo: message.type, numero: maskPhone(message.from) };
+      const fields = { mensajeId: logId(message.id), tipo: message.type, numero: maskPhone(phone),
+        tipoRemitente: phone ? 'telefono' : 'bsuid' };
       this.logger.log(fields, 'WhatsApp: mensaje recibido');
       try {
-        const senderHash = this.crypto.hashSender(message.from);
+        const senderHash = this.crypto.hashSender(sender);
         const sticker = message.type === 'sticker' ? message.sticker : undefined;
         const [row] = await this.db.insert(webhookInbox).values({
           messageId: message.id,
@@ -127,7 +116,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           mediaSha256: sticker?.sha256 ?? null,
           mediaAnimated: sticker?.animated ?? null,
           senderHash,
-          senderCiphertext: this.crypto.encrypt(message.from),
+          senderCiphertext: this.crypto.encrypt(sender),
           messageType: message.type,
           status: 'pending',
           nextAttemptAt: new Date(),
@@ -198,7 +187,10 @@ export class WhatsappService implements OnApplicationBootstrap {
     heartbeat.unref();
     try {
       if (!inbox.senderCiphertext) throw new Error('Missing encrypted sender');
-      const waId = this.crypto.decrypt(inbox.senderCiphertext);
+      const sender = this.crypto.decrypt(inbox.senderCiphertext);
+      const recipient: WhatsAppRecipient = sender.startsWith(bsuidPrefix)
+        ? { recipient: sender.slice(bsuidPrefix.length) }
+        : { to: sender };
       const event = await this.events.getEvent();
       let replyText: string;
       let replyType: ReplyType;
@@ -209,18 +201,18 @@ export class WhatsappService implements OnApplicationBootstrap {
         replyText = botMessages.help.replace('{{web_url}}', process.env.WEB_URL ?? '');
         replyType = 'ayuda';
       } else {
-        const intake = await this.prepareIntake(inbox, waId).catch((error: unknown) => {
+        const intake = await this.prepareIntake(inbox, 'to' in recipient ? recipient.to : null).catch((error: unknown) => {
           if (error instanceof ConflictException && (error.getResponse() as { code?: string }).code === 'EVENT_NOT_OPEN') return undefined;
           throw error;
         });
         if (intake) {
-          await this.finishSticker(inbox, intake, waId, leaseToken);
+          await this.finishSticker(inbox, intake, recipient, leaseToken);
           return;
         }
         replyType = intake === null ? 'cupo_agotado' : 'evento_cerrado';
         replyText = intake === null ? botMessages.dailyLimit : botMessages.closed;
       }
-      if (!await this.sendReply(inbox, waId, replyType, replyText, leaseToken)) return;
+      if (!await this.sendReply(inbox, recipient, replyType, replyText, leaseToken)) return;
       const [finished] = await this.db.update(webhookInbox).set({ status: 'done', senderCiphertext: null, leaseToken: null, leaseUntil: null, updatedAt: new Date() })
         .where(and(eq(webhookInbox.id, id), eq(webhookInbox.status, 'processing'), eq(webhookInbox.leaseToken, leaseToken)))
         .returning({ id: webhookInbox.id });
@@ -232,7 +224,7 @@ export class WhatsappService implements OnApplicationBootstrap {
     }
   }
 
-  private async prepareIntake(inbox: typeof webhookInbox.$inferSelect, waId: string) {
+  private async prepareIntake(inbox: InboxMessage, waId: string | null) {
     return this.db.transaction(async (tx) => {
       await this.events.assertOpen(tx);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${inbox.senderHash ?? ''}, 0))`);
@@ -263,9 +255,9 @@ export class WhatsappService implements OnApplicationBootstrap {
     });
   }
 
-  private async finishSticker(inbox: typeof webhookInbox.$inferSelect, intake: typeof whatsappIntakes.$inferSelect, waId: string, leaseToken: string) {
+  private async finishSticker(inbox: InboxMessage, intake: typeof whatsappIntakes.$inferSelect, recipient: WhatsAppRecipient, leaseToken: string) {
     if (intake.status === 'ready' && intake.tokenCiphertext) {
-      await this.sendIntakeLink(inbox, intake, waId, leaseToken);
+      await this.sendIntakeLink(inbox, intake, recipient, leaseToken);
       return;
     }
     if (intake.status !== 'processing') {
@@ -312,18 +304,18 @@ export class WhatsappService implements OnApplicationBootstrap {
       }).where(and(eq(whatsappIntakes.id, intake.id), eq(whatsappIntakes.status, 'processing'))).returning();
       if (ready) {
         this.logger.log({ mensajeId: logId(inbox.messageId), stickerId: ready.id, formato: ready.mimeType }, 'WhatsApp: sticker guardado en Storage y marcado como listo en la base de datos');
-        await this.sendIntakeLink(inbox, ready, waId, leaseToken);
+        await this.sendIntakeLink(inbox, ready, recipient, leaseToken);
       }
     } finally {
       await rm(path, { force: true }).catch(() => undefined);
     }
   }
 
-  private async sendIntakeLink(inbox: typeof webhookInbox.$inferSelect, intake: typeof whatsappIntakes.$inferSelect, waId: string, leaseToken: string) {
+  private async sendIntakeLink(inbox: InboxMessage, intake: typeof whatsappIntakes.$inferSelect, recipient: WhatsAppRecipient, leaseToken: string) {
     if (!intake.tokenCiphertext) throw new Error('Temporary claim token is unavailable');
     const token = this.crypto.decrypt(intake.tokenCiphertext);
     const url = `${process.env.WEB_URL}/s/${token}`;
-    if (!await this.sendReply(inbox, waId, 'enlace_sticker', botMessages.link(url), leaseToken)) return;
+    if (!await this.sendReply(inbox, recipient, 'enlace_sticker', botMessages.link(url), leaseToken)) return;
     const completed = await this.db.transaction(async (tx) => {
       const [finished] = await tx.update(webhookInbox).set({ status: 'done', senderCiphertext: null, leaseToken: null, leaseUntil: null, updatedAt: new Date() })
         .where(and(eq(webhookInbox.id, inbox.id), eq(webhookInbox.status, 'processing'), eq(webhookInbox.leaseToken, leaseToken))).returning({ id: webhookInbox.id });
@@ -336,15 +328,16 @@ export class WhatsappService implements OnApplicationBootstrap {
     this.logCompletion(inbox, completed);
   }
 
-  private async sendReply(inbox: InboxMessage, waId: string, replyType: ReplyType, text: string, leaseToken: string) {
-    const fields = { mensajeId: logId(inbox.messageId), numero: maskPhone(waId), respuesta: replyType };
+  private async sendReply(inbox: InboxMessage, recipient: WhatsAppRecipient, replyType: ReplyType, text: string, leaseToken: string) {
+    const fields = { mensajeId: logId(inbox.messageId), numero: 'to' in recipient ? maskPhone(recipient.to) : undefined,
+      tipoRemitente: 'to' in recipient ? 'telefono' : 'bsuid', respuesta: replyType };
     if (!await this.renewLease(inbox.id, leaseToken)) {
       this.logger.warn(fields, 'WhatsApp: respuesta omitida porque venció el bloqueo de procesamiento');
       return false;
     }
     let replyId: string | undefined;
     try {
-      replyId = await this.graph.sendText(waId, text);
+      replyId = await this.graph.sendText(recipient, text);
     } catch (error) {
       this.logger.warn({ ...fields, ...errorFields(error) }, 'WhatsApp: no se pudo enviar la respuesta a Meta');
       throw error;
@@ -416,7 +409,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   private extractNotifications(payload: unknown) {
-    const messages: { message: IncomingMessage; contacts: unknown[] }[] = [];
+    const messages: IncomingMessage[] = [];
     const statuses: DeliveryStatus[] = [];
     const entries = typeof payload === 'object' && payload !== null ? (payload as { entry?: unknown }).entry : undefined;
     if (!Array.isArray(entries)) return { messages, statuses };
@@ -425,11 +418,8 @@ export class WhatsappService implements OnApplicationBootstrap {
       const changes = (entry as { changes?: unknown[] }).changes;
       if (!Array.isArray(changes)) continue;
       for (const change of changes) {
-        const value = typeof change === 'object' && change !== null ? (change as { value?: { messages?: unknown; contacts?: unknown; statuses?: unknown } }).value : undefined;
-        if (Array.isArray(value?.messages)) {
-          const contacts = Array.isArray(value.contacts) ? value.contacts as unknown[] : [];
-          for (const message of value.messages as IncomingMessage[]) messages.push({ message, contacts });
-        }
+        const value = typeof change === 'object' && change !== null ? (change as { value?: { messages?: unknown; statuses?: unknown } }).value : undefined;
+        if (Array.isArray(value?.messages)) messages.push(...value.messages as IncomingMessage[]);
         if (Array.isArray(value?.statuses)) statuses.push(...value.statuses as DeliveryStatus[]);
       }
     }

@@ -1,5 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
+export type WhatsAppRecipient = { to: string } | { recipient: string };
+
 export class GraphResponseError extends ServiceUnavailableException {
   constructor(
     readonly operation: 'consultar_medio' | 'descargar_medio' | 'enviar_respuesta',
@@ -49,14 +51,15 @@ export class GraphClient {
     return { data, mimeType: metadata.mime_type ?? response.headers.get('content-type') ?? 'application/octet-stream' };
   }
 
-  async sendText(to: string, body: string) {
+  async sendText(recipient: WhatsAppRecipient, body: string) {
     const token = process.env.WA_ACCESS_TOKEN;
     const phoneNumberId = process.env.WA_PHONE_NUMBER_ID;
     if (!token || !phoneNumberId) throw new Error('WhatsApp Graph credentials are required');
     const response = await fetch(`${this.baseUrl()}/${encodeURIComponent(phoneNumberId)}/messages`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body, preview_url: true } }),
+      body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', ...recipient,
+        type: 'text', text: { body, preview_url: true } }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw await this.responseError(response, 'enviar_respuesta');

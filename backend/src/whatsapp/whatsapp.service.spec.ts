@@ -56,24 +56,18 @@ describe('Logs de WhatsApp', () => {
 
   afterAll(() => Logger.overrideLogger(false));
 
-  test('diagnostica el remitente ausente usando solo las claves del bloque correspondiente', async () => {
+  test('descarta mensajes sin remitente directo aunque el webhook incluya contactos', async () => {
     const { module, service, insert } = await createService();
     try {
-      const accepted = await pinoLogger.runInContext(() => service.accept({ entry: [{ changes: [
-        { value: { contacts: [{ parent_user_id: 'otro-bloque' }] } },
-        { value: { messages: [{ id: incomingId, type: 'text', text: { body: privateText }, from_user_id: 'CO.identificador' }],
-          contacts: [{ wa_id: phone, profile: { name: 'nombre-privado' }, user_id: 'CO.identificador' }] } },
-      ] }] }), { bindings: { req: { url: 'https://example.test/privado' } } });
+      const accepted = await service.accept(payload({
+        messages: [{ id: incomingId, type: 'text' }],
+        contacts: [{ wa_id: phone, user_id: 'CO.identificador' }],
+      }));
       expect(accepted).toBe(0);
       expect(insert).not.toHaveBeenCalled();
-      const line = logLines.find((line) => line.includes('WhatsApp: mensaje sin remitente'))!;
-      expect(JSON.parse(line)).toMatchObject({
-        messageKeys: ['from_user_id', 'id', 'text', 'type'], contactKeys: [['profile', 'user_id', 'wa_id']],
-        hasMessageFrom: false, hasMessageFromUserId: true, hasContactWaId: true, hasContactParentUserId: false,
-      });
-      for (const value of [phone, privateText, incomingId, 'CO.identificador', 'nombre-privado', 'https://example.test/privado']) {
-        expect(line).not.toContain(value);
-      }
+      expect(logLines.join('')).toContain('se ignoró un mensaje con datos incompletos');
+      expect(logLines.join('')).not.toContain(phone);
+      expect(logLines.join('')).not.toContain('CO.identificador');
     } finally {
       await module.close();
     }
