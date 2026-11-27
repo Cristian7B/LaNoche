@@ -260,7 +260,10 @@ export class WhatsappService implements OnApplicationBootstrap {
 
   private async retry(inbox: typeof webhookInbox.$inferSelect, attempts: number, error: unknown, leaseToken: string) {
     const message = error instanceof Error ? error.constructor.name : 'Error';
-    this.logger.warn(`WhatsApp inbox attempt failed (${message})`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error ? error.cause : undefined;
+    const causeMessage = cause instanceof Error ? cause.message : cause === undefined ? 'n/a' : String(cause);
+    this.logger.warn(`WhatsApp inbox attempt failed (${message}): ${errorMessage} | cause: ${causeMessage}`);
     if (attempts >= 3) {
       const [failed] = await this.db.update(webhookInbox).set({ status: 'failed', attempts, senderCiphertext: null, leaseToken: null, leaseUntil: null, lastError: message, updatedAt: new Date() })
         .where(and(eq(webhookInbox.id, inbox.id), eq(webhookInbox.status, 'processing'), eq(webhookInbox.leaseToken, leaseToken))).returning({ id: webhookInbox.id });
