@@ -66,7 +66,7 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 			const image=candidate.media[0];if(image){const media=document.createElement(image.kind==='video'?'video':'img');if(media instanceof HTMLVideoElement){media.src=image.url;media.poster=image.thumb_url;media.controls=true;media.preload='metadata';}else{media.src=image.thumb_url||image.url;media.alt=`Postulación: ${candidate.title}`;}card.append(media);}
 			const body=document.createElement('div');body.className='candidate-body';
 			const title=document.createElement('h2');title.textContent=candidate.title;
-			const detail=document.createElement('button');detail.className='detail';detail.type='button';detail.textContent='Ver detalles y medios';detail.onclick=()=>showDetails(candidate);
+			const detail=document.createElement('button');detail.className='detail';detail.type='button';detail.textContent='Ver postulación';detail.onclick=()=>showDetails(candidate);
 			const choose=document.createElement('button');choose.type='button';choose.className='choose';choose.disabled=!open;choose.setAttribute('aria-pressed',String(selected.includes(candidate.id)));
 			const syncChoose=()=>{const index=selected.indexOf(candidate.id);choose.textContent=index>=0?`Elegida · puesto ${index+1}`:'Elegir';choose.setAttribute('aria-pressed',String(index>=0));card.classList.toggle('chosen',index>=0);};
 			choose.onclick=()=>{const index=selected.indexOf(candidate.id);if(index>=0)selected.splice(index,1);else if(selected.length<maxVotes)selected.push(candidate.id);else {message.textContent=`Tu papeleta admite hasta ${maxVotes} opciones.`;return;}message.textContent='El orden de selección define tus puestos.';syncAll();}; syncChoose();
