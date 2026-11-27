@@ -1,5 +1,16 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
+export class GraphResponseError extends ServiceUnavailableException {
+  constructor(
+    readonly operation: 'consultar_medio' | 'descargar_medio' | 'enviar_respuesta',
+    readonly httpStatus: number,
+    readonly graphCode?: number,
+    readonly graphSubcode?: number,
+  ) {
+    super('Meta rechazó una solicitud de WhatsApp.');
+  }
+}
+
 @Injectable()
 export class GraphClient {
   private baseUrl() {
@@ -12,7 +23,7 @@ export class GraphClient {
     const metadataResponse = await fetch(`${this.baseUrl()}/${encodeURIComponent(mediaId)}`, {
       headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000),
     });
-    if (!metadataResponse.ok) throw new ServiceUnavailableException('Meta media lookup failed');
+    if (!metadataResponse.ok) throw await this.responseError(metadataResponse, 'consultar_medio');
     const metadata = await metadataResponse.json() as { url?: string; mime_type?: string; file_size?: number };
     if (!metadata.url) throw new ServiceUnavailableException('Meta did not return a media URL');
     if (metadata.file_size !== undefined && metadata.file_size > 2 * 1024 * 1024) throw new Error('WhatsApp sticker exceeds 2 MB');
@@ -21,7 +32,7 @@ export class GraphClient {
       throw new ServiceUnavailableException('Meta media URL was not trusted');
     }
     const response = await fetch(mediaUrl, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
-    if (!response.ok) throw new ServiceUnavailableException('Meta media download failed');
+    if (!response.ok) throw new GraphResponseError('descargar_medio', response.status);
     const maximum = 2 * 1024 * 1024;
     const declared = Number(response.headers.get('content-length') ?? 0);
     if (declared > maximum) throw new Error('WhatsApp sticker exceeds 2 MB');
@@ -48,6 +59,18 @@ export class GraphClient {
       body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body, preview_url: true } }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) throw new ServiceUnavailableException('Meta message send failed');
+    if (!response.ok) throw await this.responseError(response, 'enviar_respuesta');
+    // A response body that cannot be read must not trigger another send after a successful HTTP status.
+    const result = await response.json().catch(() => null) as { messages?: { id?: unknown }[] } | null;
+    const messageId = result?.messages?.[0]?.id;
+    return typeof messageId === 'string' ? messageId : undefined;
+  }
+
+  private async responseError(response: Response, operation: GraphResponseError['operation']) {
+    const result = await response.json().catch(() => null) as { error?: { code?: unknown; error_subcode?: unknown } } | null;
+    const code = result?.error?.code;
+    const subcode = result?.error?.error_subcode;
+    return new GraphResponseError(operation, response.status, typeof code === 'number' ? code : undefined,
+      typeof subcode === 'number' ? subcode : undefined);
   }
 }
