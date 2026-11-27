@@ -2,7 +2,7 @@ import { parseEnvironment } from './env.js';
 
 const requiredEnvironment = {
   WEB_URL: 'https://gala.example',
-  STORAGE_PUBLIC_BASE_URL: 'https://storage.example/candidates',
+  STORAGE_PUBLIC_BASE_URL: 'https://storage.example/Candidatos',
   DATABASE_URL: 'postgres://user:password@localhost:5432/gala',
   SUPABASE_URL: 'https://project.supabase.co',
   SUPABASE_SECRET_KEY: 'secret',
@@ -19,7 +19,7 @@ describe('parseEnvironment', () => {
   it('applies documented defaults and parses the port', () => {
     const env = parseEnvironment({ ...requiredEnvironment, PORT: '8080' });
     expect(env.PORT).toBe(8080);
-    expect(env.SUPABASE_STORAGE_BUCKET).toBe('candidates');
+    expect(env.SUPABASE_STORAGE_BUCKET).toBe('Candidatos');
     expect(env.WA_MAX_INTAKES_PER_DAY).toBe(10);
     expect(env.TRUST_PROXY).toBe(false);
   });

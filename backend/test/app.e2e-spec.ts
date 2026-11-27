@@ -9,7 +9,7 @@ import { WhatsappService } from './../src/whatsapp/whatsapp.service.js';
 const env = parseEnvironment({
   NODE_ENV: 'test',
   WEB_URL: 'https://gala.example',
-  STORAGE_PUBLIC_BASE_URL: 'https://storage.example/candidates',
+  STORAGE_PUBLIC_BASE_URL: 'https://storage.example/Candidatos',
   DATABASE_URL: 'postgres://user:password@localhost:5432/gala',
   SUPABASE_URL: 'https://project.supabase.co',
   SUPABASE_SECRET_KEY: 'secret',

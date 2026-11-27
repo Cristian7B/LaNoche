@@ -8,7 +8,7 @@ const environmentSchema = z.object({
   DATABASE_URL: z.url(),
   SUPABASE_URL: z.url(),
   SUPABASE_SECRET_KEY: z.string().min(1),
-  SUPABASE_STORAGE_BUCKET: z.string().min(1).default('candidates'),
+  SUPABASE_STORAGE_BUCKET: z.string().min(1).default('Candidatos'),
   ADMIN_EMAILS: z.string().default(''),
   TURNSTILE_SECRET: z.string().optional(),
   WA_VERIFY_TOKEN: z.string().min(1),

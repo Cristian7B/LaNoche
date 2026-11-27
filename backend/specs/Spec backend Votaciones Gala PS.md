@@ -8,7 +8,7 @@ API REST en NestJS que soporta la web de votación (Astro) y el bot de WhatsApp.
 
 - **Auth**: Supabase Auth (Google). El backend valida el JWT.
 - **Datos**: Postgres de Supabase, con Drizzle.
-- **Archivos**: Supabase Storage (bucket público `candidates`), escrito solo por el backend.
+- **Archivos**: Supabase Storage (bucket público `Candidatos`), escrito solo por el backend.
 - **Bot**: WhatsApp Cloud API de Meta (webhook de entrada, Graph API de salida).
 - **Referencia**: documento Votaciones Gala PS: pantallas y flujos de usuario (v1).
 
@@ -195,7 +195,7 @@ CREATE TABLE admin_actions (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ```
 
-Bucket de Storage `candidates` (público, solo lectura anónima): `submissions/{submission_id}/{position}.{ext}` y `{position}_thumb.webp`; `intakes/{intake_id}/media.{ext}` y `thumb.webp`. Los nombres usan uuid, nunca el nombre original del archivo.
+Bucket de Storage `Candidatos` (público, solo lectura anónima): `submissions/{submission_id}/{position}.{ext}` y `{position}_thumb.webp`; `intakes/{intake_id}/media.{ext}` y `thumb.webp`. Los nombres usan uuid, nunca el nombre original del archivo.
 
 ## 6. Reglas de negocio
 
@@ -402,7 +402,7 @@ ffmpeg -i in -an -c:v libx264 -pix_fmt yuv420p -crf 26 -preset veryfast -movflag
 ```
 NODE_ENV, PORT, WEB_URL, STORAGE_PUBLIC_BASE_URL
 DATABASE_URL                  # session pooler de Supabase
-SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_STORAGE_BUCKET=candidates
+SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_STORAGE_BUCKET=Candidatos
 ADMIN_EMAILS                  # lista separada por comas
 TURNSTILE_SECRET
 WA_VERIFY_TOKEN, WA_APP_SECRET, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID

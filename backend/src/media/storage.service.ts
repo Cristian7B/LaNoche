@@ -6,7 +6,7 @@ export class StorageService {
   private client?: SupabaseClient;
 
   async upload(path: string, data: Buffer, contentType: string) {
-    const { error } = await this.getClient().storage.from(process.env.SUPABASE_STORAGE_BUCKET ?? 'candidates')
+    const { error } = await this.getClient().storage.from(process.env.SUPABASE_STORAGE_BUCKET ?? 'Candidatos')
       .upload(path, data, { contentType, cacheControl: '31536000', upsert: false });
     if (error) throw new ServiceUnavailableException({ code: 'STORAGE_UNAVAILABLE', message: 'No se pudo guardar el medio.' });
     return { path, url: this.publicUrl(path) };
@@ -14,7 +14,7 @@ export class StorageService {
 
   async remove(paths: string[]) {
     if (paths.length === 0) return;
-    const { error } = await this.getClient().storage.from(process.env.SUPABASE_STORAGE_BUCKET ?? 'candidates').remove(paths);
+    const { error } = await this.getClient().storage.from(process.env.SUPABASE_STORAGE_BUCKET ?? 'Candidatos').remove(paths);
     if (error) throw new ServiceUnavailableException({ code: 'STORAGE_UNAVAILABLE', message: 'No se pudo limpiar el medio.' });
   }
 
