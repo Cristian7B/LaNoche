@@ -48,7 +48,39 @@ import Layout from '../../../layouts/Layout.astro';
 	} catch(error){message.textContent=error instanceof Error?error.message:'No pudimos cargar tus postulaciones.';}
 </script>
 
-<style>
-	.mine{min-height:100vh;padding:max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 60px max(20px,env(safe-area-inset-left));background:radial-gradient(ellipse at 85% 0%,#28163c,#100b1d 60%)}
-	header{display:flex;justify-content:space-between;max-width:900px;margin:0 auto 58px}header a{color:#d7c8e6;font-size:11px;text-decoration:none}.content{width:min(900px,100%);margin:0 auto}.eyebrow,.tag{color:var(--lime);font-size:9px;letter-spacing:.18em}.content h1{margin:10px 0 14px;font:400 clamp(46px,10vw,72px)/.95 'Instrument Serif',Georgia,serif}.content h1 em{color:#c39dff}.message{color:#afa1bd;font-size:12px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}.card{overflow:hidden;border:1px solid #ffffff20;background:#ffffff07}.card>img,.card>video{display:block;width:100%;height:200px;object-fit:cover;background:#251936}.info{padding:16px}.info h2{margin:8px 0;color:#f1e8fb;font:24px 'Instrument Serif',Georgia,serif}.info p{min-height:35px;color:#ab9eb9;font-size:11px;line-height:1.5}.info small{color:#b89bda;font-size:9px}.deleted{opacity:.64}.controls{display:flex;gap:12px;padding:0 16px 16px}.controls button,.edit-form button{padding:8px 10px;border:1px solid #ffffff2a;color:#e6dcf2;background:transparent;font-size:10px;cursor:pointer}.controls button:last-child{color:#f7969c}.edit-form{display:grid;gap:8px;padding:0 16px 16px}.edit-form input,.edit-form textarea{padding:10px;border:1px solid #ffffff2a;color:#f6efff;background:#191127;font:12px 'DM Sans',sans-serif}.edit-form button{justify-self:start}.edit-form button[type=button]{margin-left:4px}@media(max-width:600px){.cards{grid-template-columns:1fr}header{margin-bottom:42px}}
+<style is:global>
+	.mine { min-height:100vh; padding:max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 60px max(20px,env(safe-area-inset-left)); background:radial-gradient(ellipse at 85% 0%,#28163c,#100b1d 60%); }
+	.mine > header { display:flex; align-items:center; justify-content:space-between; gap:16px; width:min(900px,100%); margin:0 auto 58px; }
+	.mine > header a { color:#d7c8e6; font-size:11px; text-decoration:none; }
+	.mine > header a:hover { color:var(--lime); }
+	.mine .content { width:min(900px,100%); margin:0 auto; }
+	.mine .eyebrow, .mine .tag { color:var(--lime); font-size:9px; letter-spacing:.18em; }
+	.mine .content h1 { margin:10px 0 14px; font:400 clamp(46px,10vw,72px)/.95 'Instrument Serif',Georgia,serif; }
+	.mine .content h1 em { color:#c39dff; }
+	.mine .message { color:#afa1bd; font-size:12px; line-height:1.6; }
+	.mine .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:28px; }
+	.mine .card { overflow:hidden; border:1px solid #ffffff20; border-radius:4px; background:#ffffff07; }
+	.mine .card > img, .mine .card > video { display:block; width:100%; height:clamp(180px,24vw,240px); object-fit:cover; background:#251936; }
+	.mine .info { padding:16px; }
+	.mine .info h2 { margin:8px 0; color:#f1e8fb; font:24px 'Instrument Serif',Georgia,serif; }
+	.mine .info p { min-height:35px; margin:0 0 10px; color:#ab9eb9; font-size:11px; line-height:1.6; }
+	.mine .info small { color:#b89bda; font-size:10px; }
+	.mine .card.deleted { opacity:.66; }
+	.mine .controls { display:flex; flex-wrap:wrap; gap:9px; padding:0 16px 16px; }
+	.mine .controls button, .mine .edit-form button, .mine .login { min-height:38px; padding:9px 12px; border:1px solid #ffffff2a; border-radius:3px; color:#e6dcf2; background:#ffffff08; font-size:11px; cursor:pointer; }
+	.mine .controls button:hover, .mine .edit-form button:hover, .mine .login:hover { border-color:#c39dff88; background:#c39dff12; }
+	.mine .controls button:last-child { color:#f7969c; }
+	.mine .edit-form { display:grid; gap:12px; padding:0 16px 16px; }
+	.mine .edit-form label { display:grid; gap:6px; color:#d4c6e1; font-size:10px; }
+	.mine .edit-form input, .mine .edit-form textarea { width:100%; min-height:40px; padding:10px; border:1px solid #ffffff2a; border-radius:3px; color:#f6efff; background:#191127; font:12px 'DM Sans',sans-serif; }
+	.mine .edit-form textarea { min-height:90px; resize:vertical; }
+	.mine .edit-form button { justify-self:start; }
+	.mine .edit-form button[type=button] { margin-left:4px; }
+	.mine button:focus-visible, .mine a:focus-visible, .mine input:focus-visible, .mine textarea:focus-visible { outline:2px solid var(--lime); outline-offset:3px; }
+	@media(max-width:600px) {
+		.mine { padding-bottom:40px; }
+		.mine > header { margin-bottom:42px; }
+		.mine .cards { grid-template-columns:1fr; gap:14px; margin-top:22px; }
+		.mine .card > img, .mine .card > video { height:min(62vw,260px); }
+	}
 </style>

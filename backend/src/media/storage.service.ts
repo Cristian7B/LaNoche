@@ -21,7 +21,14 @@ export class StorageService {
   publicUrl(path: string) {
     const base = process.env.STORAGE_PUBLIC_BASE_URL;
     if (!base) throw new Error('STORAGE_PUBLIC_BASE_URL is required');
-    return `${base.replace(/\/$/, '')}/${path.split('/').map(encodeURIComponent).join('/')}`;
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'Candidatos';
+    const publicBase = new URL(base);
+    const publicStoragePrefix = '/storage/v1/object/public/';
+    const prefixIndex = publicBase.pathname.indexOf(publicStoragePrefix);
+    if (prefixIndex >= 0) {
+      publicBase.pathname = `${publicBase.pathname.slice(0, prefixIndex + publicStoragePrefix.length)}${encodeURIComponent(bucket)}`;
+    }
+    return `${publicBase.toString().replace(/\/$/, '')}/${path.split('/').map(encodeURIComponent).join('/')}`;
   }
 
   private getClient() {
