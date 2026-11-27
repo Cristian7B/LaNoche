@@ -70,7 +70,7 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 			const choose=document.createElement('button');choose.type='button';choose.className='choose';choose.disabled=!open;choose.setAttribute('aria-pressed',String(selected.includes(candidate.id)));
 			const syncChoose=()=>{const index=selected.indexOf(candidate.id);choose.textContent=index>=0?`Elegida · puesto ${index+1}`:'Elegir';choose.setAttribute('aria-pressed',String(index>=0));card.classList.toggle('chosen',index>=0);};
 			choose.onclick=()=>{const index=selected.indexOf(candidate.id);if(index>=0)selected.splice(index,1);else if(selected.length<maxVotes)selected.push(candidate.id);else {message.textContent=`Tu papeleta admite hasta ${maxVotes} opciones.`;return;}message.textContent='El orden de selección define tus puestos.';syncAll();}; syncChoose();
-			body.append(title,detail,description,gallery,choose);card.append(body);list.append(card);
+			body.append(title,detail,choose);card.append(body);list.append(card);
 		}
 		reviewButton.hidden=!open;
 		syncAll();
