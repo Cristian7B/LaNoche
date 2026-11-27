@@ -12,9 +12,14 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 <Layout title={`Votar · ${label} · La noche de PS`}>
 	<main class="vote" data-category={category}>
 		<header><a href="/app">← Tu gala</a><span>02 / VOTAR</span></header>
-		<section class="content"><p class="eyebrow">TU PAPELETA</p><h1>{label}<br /><em>de la historia.</em></h1><p id="message" class="message">Cargando candidatos…</p>
+		<section class="content"><p class="eyebrow">TU PAPELETA</p><h1>{label}<br /><em>de la historia.</em></h1><p id="message" class="message">Cargando candidatos…</p><p id="save-confirmation" class="save-confirmation" role="status" aria-live="polite" hidden></p>
 			<div id="progress" class="progress" hidden><span id="count">0</span><span>seleccionados · máximo <b id="limit">—</b></span></div>
 			<div id="candidate-list" class="candidate-list"></div>
+			<dialog id="details-modal" class="details-modal" aria-labelledby="details-title" aria-describedby="details-description">
+				<div class="details-modal-header"><div><p class="eyebrow">DETALLE DE LA POSTULACIÓN</p><h2 id="details-title"></h2></div><button id="close-details" class="close-details" type="button" aria-label="Cerrar detalles">×</button></div>
+				<p id="details-description" class="details-description"></p>
+				<div id="details-gallery" class="details-gallery"></div>
+			</dialog>
 			<section id="review" class="review" hidden><div class="review-head"><div><p class="eyebrow">REVISAR ORDEN</p><h2>Tu papeleta</h2></div><button id="close-review" type="button">Cerrar</button></div><ol id="ballot-list"></ol><p id="review-message" class="review-message" aria-live="polite"></p><button id="save-ballot" class="save" type="button">Guardar mi papeleta <span>↗</span></button></section>
 			<button id="review-button" class="review-button" type="button" hidden>Revisar papeleta <span>→</span></button>
 		</section>
@@ -34,6 +39,11 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 	const reviewButton=document.querySelector<HTMLButtonElement>('#review-button')!;
 	const ballotList=document.querySelector<HTMLOListElement>('#ballot-list')!;
 	const saveButton=document.querySelector<HTMLButtonElement>('#save-ballot')!;
+	const saveConfirmation=document.querySelector<HTMLElement>('#save-confirmation')!;
+	const detailsModal=document.querySelector<HTMLDialogElement>('#details-modal')!;
+	const detailsTitle=document.querySelector<HTMLElement>('#details-title')!;
+	const detailsDescription=document.querySelector<HTMLElement>('#details-description')!;
+	const detailsGallery=document.querySelector<HTMLElement>('#details-gallery')!;
 	const selected:string[]=[]; let candidates:Candidate[]=[]; let maxVotes=0; let accessToken=''; let open=false; let humanVerified=false; let verificationToken=''; let turnstileWidget:string|undefined;
 	const session=await getValidSession();
 	if(!session){message.textContent='Inicia sesión para votar.';const link=document.createElement('button');link.className='review-button';link.textContent='Continuar con Google ↗';link.onclick=()=>void startGoogleSignIn(`/app/vote/${category}`);document.querySelector('.content')?.append(link);}
@@ -56,9 +66,7 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 			const image=candidate.media[0];if(image){const media=document.createElement(image.kind==='video'?'video':'img');if(media instanceof HTMLVideoElement){media.src=image.url;media.poster=image.thumb_url;media.controls=true;media.preload='metadata';}else{media.src=image.thumb_url||image.url;media.alt=`Postulación: ${candidate.title}`;}card.append(media);}
 			const body=document.createElement('div');body.className='candidate-body';
 			const title=document.createElement('h2');title.textContent=candidate.title;
-			const description=document.createElement('p');description.textContent=candidate.description;
-			const gallery=document.createElement('div');gallery.className='gallery';gallery.hidden=true;for(const media of candidate.media){const element=document.createElement(media.kind==='video'?'video':'img');if(element instanceof HTMLVideoElement){element.src=media.url;element.poster=media.thumb_url;element.controls=true;element.preload='metadata';}else{element.src=media.url;element.alt=`${candidate.title} · imagen completa`;}gallery.append(element);}
-			const detail=document.createElement('button');detail.className='detail';detail.type='button';detail.textContent='Ver detalles y medios';detail.setAttribute('aria-expanded','false');detail.onclick=()=>{const expanded=description.hidden;description.hidden=!expanded;gallery.hidden=!expanded;detail.setAttribute('aria-expanded',String(expanded));detail.textContent=expanded?'Ocultar detalles':'Ver detalles y medios';};description.hidden=true;
+			const detail=document.createElement('button');detail.className='detail';detail.type='button';detail.textContent='Ver detalles y medios';detail.onclick=()=>showDetails(candidate);
 			const choose=document.createElement('button');choose.type='button';choose.className='choose';choose.disabled=!open;choose.setAttribute('aria-pressed',String(selected.includes(candidate.id)));
 			const syncChoose=()=>{const index=selected.indexOf(candidate.id);choose.textContent=index>=0?`Elegida · puesto ${index+1}`:'Elegir';choose.setAttribute('aria-pressed',String(index>=0));card.classList.toggle('chosen',index>=0);};
 			choose.onclick=()=>{const index=selected.indexOf(candidate.id);if(index>=0)selected.splice(index,1);else if(selected.length<maxVotes)selected.push(candidate.id);else {message.textContent=`Tu papeleta admite hasta ${maxVotes} opciones.`;return;}message.textContent='El orden de selección define tus puestos.';syncAll();}; syncChoose();
@@ -70,6 +78,7 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 	}
 
 	function syncAll(){
+		saveConfirmation.hidden=true;
 		(document.querySelector('#count') as HTMLElement).textContent=String(selected.length);
 		reviewButton.textContent=`Revisar papeleta (${selected.length}) →`;
 		for(const button of list.querySelectorAll<HTMLButtonElement>('.choose')){const card=button.closest('.candidate');const idx=Array.from(list.children).indexOf(card as Element);const id=candidates[idx]?.id;const position=selected.indexOf(id);button.textContent=position>=0?`Elegida · puesto ${position+1}`:'Elegir';button.setAttribute('aria-pressed',String(position>=0));card?.classList.toggle('chosen',position>=0);}
@@ -81,13 +90,27 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 			for(const [label,delta] of [['Subir',-1],['Bajar',1]] as const){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${candidate.title}`);button.disabled=index+delta<0||index+delta>=selected.length;button.onclick=()=>{const [entry]=selected.splice(index,1);selected.splice(index+delta,0,entry);syncAll();};controls.append(button);}
 			const remove=document.createElement('button');remove.type='button';remove.textContent='Quitar';remove.onclick=()=>{selected.splice(index,1);syncAll();};controls.append(remove);row.append(title,controls);ballotList.append(row);});
 	}
+	function showDetails(candidate:Candidate){
+		detailsTitle.textContent=candidate.title;
+		detailsDescription.textContent=candidate.description;
+		detailsGallery.replaceChildren();
+		for(const [index,media] of candidate.media.entries()){
+			const element=document.createElement(media.kind==='video'?'video':'img');
+			if(element instanceof HTMLVideoElement){element.src=media.url;element.poster=media.thumb_url;element.controls=true;element.preload='metadata';element.setAttribute('aria-label',`Video ${index+1}: ${candidate.title}`);}
+			else{element.src=media.url;element.alt=`${candidate.title} · imagen ${index+1}`;}
+			detailsGallery.append(element);
+		}
+		detailsModal.showModal();
+	}
+	document.querySelector<HTMLButtonElement>('#close-details')?.addEventListener('click',()=>detailsModal.close());
+	detailsModal.addEventListener('click',(event)=>{if(event.target===detailsModal)detailsModal.close();});
 	reviewButton.addEventListener('click',()=>{review.hidden=false;review.scrollIntoView({behavior:'smooth',block:'center'});});
 	document.querySelector('#close-review')?.addEventListener('click',()=>{review.hidden=true;});
 	saveButton.addEventListener('click',async()=>{
 		if(!open){message.textContent='La votación está cerrada.';return;}
 		saveButton.disabled=true;const chooseButtons=list.querySelectorAll<HTMLButtonElement>('.choose');chooseButtons.forEach(button=>button.disabled=true);
 		try{
-			await apiRequest(`/votes/${category}`,{method:'PUT',accessToken,body:JSON.stringify({submission_ids:[...selected]})});const refreshed=await apiRequest<Ballots>('/votes/me',{accessToken});selected.splice(0,selected.length,...refreshed[category].items.sort((a,b)=>a.position-b.position).map(item=>item.submission.id));syncAll();message.textContent='Tu papeleta quedó guardada. Puedes cambiarla mientras la gala siga abierta.';review.hidden=true;
+			await apiRequest(`/votes/${category}`,{method:'PUT',accessToken,body:JSON.stringify({submission_ids:[...selected]})});const refreshed=await apiRequest<Ballots>('/votes/me',{accessToken});selected.splice(0,selected.length,...refreshed[category].items.sort((a,b)=>a.position-b.position).map(item=>item.submission.id));syncAll();message.textContent='Tu papeleta quedó guardada. Puedes cambiarla mientras la gala siga abierta.';saveConfirmation.textContent='✓ Papeleta guardada correctamente.';saveConfirmation.hidden=false;review.hidden=true;
 		}catch(error){const text=error instanceof ApiError&&error.code==='SELF_VOTE_NOT_ALLOWED'?'No puedes votar por tu propia postulación. Elige otra papeleta.':error instanceof Error?error.message:'No se pudo guardar tu papeleta.';message.textContent=text;(document.querySelector('#review-message') as HTMLElement).textContent=text;}
 		finally{saveButton.disabled=false;chooseButtons.forEach(button=>button.disabled=!open);}
 	});
@@ -95,4 +118,15 @@ const label = category === 'photo' ? 'Mejor foto' : 'Mejor sticker';
 
 <style is:global>
 	.vote{min-height:100vh;padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) 50px max(18px,env(safe-area-inset-left));background:radial-gradient(ellipse at 84% 0%,#28163c,#100b1d 60%)}header{display:flex;justify-content:space-between;max-width:850px;margin:0 auto 48px;color:#9f91b0;font-size:10px;letter-spacing:.15em}header a{color:#e4d6f4;text-decoration:none}.content{width:min(850px,100%);margin:0 auto}.eyebrow{color:var(--lime);font-size:10px;letter-spacing:.18em}h1{margin:10px 0 14px;font:400 clamp(52px,11vw,78px)/.9 'Instrument Serif',Georgia,serif}h1 em{color:#c39dff}.message{min-height:20px;color:#b7abc7;font-size:12px}.progress{display:flex;align-items:center;gap:9px;margin:20px 0;color:#a99bb8;font-size:11px}.progress span:first-child{display:grid;place-items:center;width:26px;height:26px;border:1px solid #c1ff7266;border-radius:50%;color:var(--lime)}.progress b{color:#e6daef}.candidate-list{display:grid;grid-template-columns:1fr 1fr;gap:13px}.candidate{overflow:hidden;border:1px solid #ffffff20;background:#ffffff07;transition:border .18s}.candidate.chosen{border-color:#c1ff7288}.candidate>img,.candidate>video{display:block;width:100%;height:210px;object-fit:cover;background:#241936}.candidate-body{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:14px}.candidate h2{grid-column:1/-1;margin:0;color:#f6efff;font:23px 'Instrument Serif',Georgia,serif}.candidate p{grid-column:1/-1;margin:0;color:#b2a4bf;font-size:11px;line-height:1.5}.detail{justify-self:start;padding:0;border:0;color:#bca9d6;background:transparent;font-size:10px;cursor:pointer}.choose{justify-self:end;padding:8px 10px;border:1px solid #c1ff7266;border-radius:2px;color:#e4f6c7;background:#c1ff7210;font-size:10px;cursor:pointer}.choose[aria-pressed=true]{color:#191220;background:var(--lime)}.choose:disabled{opacity:.4;cursor:not-allowed}.review-button,.save{display:flex;justify-content:space-between;width:100%;margin-top:22px;padding:15px;border:0;color:#17101f;background:var(--lime);font-size:12px;font-weight:600;cursor:pointer}.review{position:fixed;z-index:6;right:0;bottom:0;left:0;max-height:76vh;overflow:auto;padding:20px max(18px,calc((100vw - 800px)/2));border-top:1px solid #b797ff66;border-radius:16px 16px 0 0;background:#191127f5;box-shadow:0 -20px 80px #0008;backdrop-filter:blur(15px)}.review-head{display:flex;justify-content:space-between;align-items:center}.review-head h2{margin:4px 0;font:32px 'Instrument Serif',Georgia,serif}.review-head button,.review li button{border:0;color:#cfc0dd;background:none;font-size:10px;cursor:pointer}.review ol{padding-left:24px}.review li{padding:11px 0;border-bottom:1px solid #ffffff1b;color:#f4eafa;font-size:12px}.review li>span{display:block;margin-bottom:8px}.review li div{display:flex;gap:12px}.review li button:disabled{opacity:.4}.save{margin-bottom:8px}.turnstile{margin-top:12px}.gallery{grid-column:1/-1;display:grid;gap:6px}.gallery[hidden]{display:none}.gallery img,.gallery video{width:100%;max-height:280px;object-fit:contain;background:#100b1d}.review-message{color:#f0c7a3;font-size:11px}@media(max-width:620px){header{margin-bottom:38px}.candidate-list{grid-template-columns:1fr}.candidate>img,.candidate>video{height:230px}}
+	.save-confirmation{margin:14px 0 4px;padding:13px 15px;border:1px solid #c1ff7255;border-radius:3px;color:#e3ffc1;background:#c1ff7210;font-size:12px;line-height:1.5}
+	.details-modal{width:min(760px,calc(100vw - 36px));max-height:min(84svh,820px);overflow:auto;padding:22px;border:1px solid #b797ff66;border-radius:12px;color:#f6efff;background:#191127;box-shadow:0 24px 90px #0009}
+	.details-modal::backdrop{background:#090611c9;backdrop-filter:blur(5px)}
+	.details-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+	.details-modal-header .eyebrow{margin:0 0 8px}
+	.details-modal-header h2{margin:0;color:#fff;font:32px/1 'Instrument Serif',Georgia,serif}
+	.close-details{flex:none;width:36px;height:36px;border:1px solid #ffffff2a;border-radius:50%;color:#eee3f8;background:#ffffff08;font-size:24px;line-height:1;cursor:pointer}
+	.details-description{margin:14px 0 18px;color:#b9adc7;font-size:13px;line-height:1.7}
+	.details-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:10px}
+	.details-gallery img,.details-gallery video{display:block;width:100%;max-height:min(52svh,500px);border-radius:4px;object-fit:contain;background:#100b1d}
+	@media(max-width:620px){.details-modal{position:fixed;inset:auto 0 0;width:100%;max-width:none;max-height:88svh;margin:0;padding:22px max(18px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));border-radius:18px 18px 0 0}.details-modal-header h2{font-size:28px}}
 </style>

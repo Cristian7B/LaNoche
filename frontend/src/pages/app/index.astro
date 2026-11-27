@@ -18,8 +18,15 @@ import Layout from '../../layouts/Layout.astro';
 				<article><span class="number">01</span><h2>Mejor foto<br />de la historia</h2><p id="photo-quota">Tus postulaciones · —</p><a id="photo-action" href="/app/submissions/new?category=photo">Postular una foto <span>→</span></a></article>
 				<article><span class="number">02</span><h2>Mejor sticker<br />de la historia</h2><p id="sticker-quota">Tus postulaciones · —</p><a id="sticker-action" href="/app/submissions/new?category=sticker">Postular un sticker <span>→</span></a></article>
 			</div>
+			<section class="vote-section" aria-labelledby="vote-title">
+				<div class="vote-heading"><p class="eyebrow">TU VOZ EN LA GALA</p><h2 id="vote-title">Vota por tus <em>favoritos.</em></h2></div>
+				<div class="vote-grid">
+					<a id="photo-vote-action" class="vote-card" href="/app/vote/photo"><span class="number">01 · FOTO</span><strong>Mejor foto<br />de la historia</strong><span class="vote-arrow" aria-hidden="true">↗</span></a>
+					<a id="sticker-vote-action" class="vote-card" href="/app/vote/sticker"><span class="number">02 · STICKER</span><strong>Mejor sticker<br />de la historia</strong><span class="vote-arrow" aria-hidden="true">↗</span></a>
+				</div>
+			</section>
 			<nav class="hub-nav" aria-label="Navegación de la gala">
-			<a href="/app/me/submissions">Mis postulaciones</a><a id="vote-action" href="/app/vote/photo">Votar</a><a href="/app/ranking">Ranking</a><a href="/results">Resultados</a>
+			<a href="/app/me/submissions">Mis postulaciones</a><a href="/app/ranking">Ranking</a><a href="/results">Resultados</a>
 			</nav>
 			<a id="admin-link" class="admin-link" href="/admin" hidden>Administrar gala →</a>
 		</section>
@@ -43,7 +50,7 @@ import Layout from '../../layouts/Layout.astro';
 			(document.querySelector('#name') as HTMLElement).textContent = user.display_name || 'amiga';
 			(document.querySelector('#event-status') as HTMLElement).textContent = event.effective_status === 'open' ? 'Postulaciones y votación abiertas' : event.effective_status === 'closed' ? 'La gala está cerrada' : 'Resultados publicados';
 			if (event.effective_status !== 'open') {
-				for (const id of ['photo-action','sticker-action','vote-action']) {
+				for (const id of ['photo-action','sticker-action','photo-vote-action','sticker-vote-action']) {
 					const link = document.querySelector<HTMLAnchorElement>(`#${id}`);
 					if (link) { link.setAttribute('aria-disabled','true'); link.title = 'Las postulaciones y votaciones están cerradas'; }
 				}
@@ -90,9 +97,21 @@ import Layout from '../../layouts/Layout.astro';
 	.quota-grid a { display:inline-block; margin-top:14px; color:#e5d8f4; font-size:12px; text-decoration:none; }
 	.quota-grid a[aria-disabled="true"],.hub-nav a[aria-disabled="true"] { opacity:.4; pointer-events:none; }
 	.quota-grid a span { margin-left:8px; color:var(--lime); }
+	.vote-section { margin-top:34px; }
+	.vote-heading { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:12px; }
+	.vote-heading .eyebrow { margin:0; }
+	.vote-heading h2 { margin:0; color:#f1e8fb; font:400 22px 'Instrument Serif',Georgia,serif; }
+	.vote-heading h2 em { color:#c39dff; }
+	.vote-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+	.vote-card { position:relative; display:grid; gap:12px; min-height:112px; padding:15px 42px 15px 16px; border:1px solid #c39dff35; color:#f1e8fb; background:linear-gradient(120deg,#c39dff0b,#ffffff04); text-decoration:none; transition:border-color .18s,background .18s,transform .18s; }
+	.vote-card:hover { transform:translateY(-2px); border-color:#c39dff88; background:#c39dff12; }
+	.vote-card .number { font-size:9px; letter-spacing:.14em; }
+	.vote-card strong { font:400 22px/1.02 'Instrument Serif',Georgia,serif; }
+	.vote-arrow { position:absolute; top:14px; right:15px; color:var(--lime); font-size:15px; }
+	.vote-card[aria-disabled="true"] { opacity:.4; pointer-events:none; }
 	.hub-nav { display:flex; justify-content:space-between; gap:12px; margin-top:22px; padding-top:18px; border-top:1px solid #ffffff24; }
 	.hub-nav a,.admin-link { color:#c8b9d8; font-size:11px; text-decoration:none; }
 	.admin-link { display:block; margin-top:24px; color:var(--lime); }
 	.error { color:#f7969c; text-align:center; }
-	@media (max-width:520px) { header { margin-bottom:40px; } .quota-grid { gap:9px; } .quota-grid article { min-height:195px; padding:14px; } .quota-grid h2 { font-size:23px; } .hub-nav { position:fixed; right:0; bottom:0; left:0; z-index:5; padding:16px 12px max(16px,env(safe-area-inset-bottom)); border-top:1px solid #ffffff20; background:#120d20ed; backdrop-filter:blur(16px); } .hub-nav a { flex:1; text-align:center; } }
+	@media (max-width:520px) { header { margin-bottom:40px; } .quota-grid { gap:9px; } .quota-grid article { min-height:195px; padding:14px; } .quota-grid h2 { font-size:23px; } .vote-section { margin-top:26px; } .vote-heading { align-items:flex-start; flex-direction:column; gap:6px; } .vote-grid { gap:9px; } .vote-card { min-height:104px; padding:13px 30px 13px 12px; } .vote-card strong { font-size:19px; } .vote-arrow { right:10px; } .hub-nav { position:fixed; right:0; bottom:0; left:0; z-index:5; padding:16px 12px max(16px,env(safe-area-inset-bottom)); border-top:1px solid #ffffff20; background:#120d20ed; backdrop-filter:blur(16px); } .hub-nav a { flex:1; text-align:center; } }
 </style>
